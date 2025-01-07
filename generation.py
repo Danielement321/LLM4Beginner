@@ -1,8 +1,8 @@
 import torch
 from config import *
 
-def generate(model, tokenizer, max_new_tokens = 50):
-    idx = torch.randint(0, CONFIG['vocab_size'], (5, 1)).long().to(CONFIG['device'])
+def random_generate(model, tokenizer, batch_size = 5, max_new_tokens = 50):
+    idx = torch.randint(0, CONFIG['vocab_size'], (batch_size, 1)).long().to(CONFIG['device'])
 
     model.eval()
     for _ in range(max_new_tokens):

@@ -1,6 +1,7 @@
 import torch
 from torch.utils.data import Dataset
 import random
+import os
 
 class SimpleDatasetForCasualLM(Dataset):
     def __init__(self, tokenized_lines, num, config, lenghth_noise = 5):
@@ -39,3 +40,13 @@ class DatasetForCasualLM(Dataset):
         src_input_ids = self.tokenized[start + idx: start + idx + self.max_seq_len]
         dst_input_ids = self.tokenized[start + idx + 1: start + idx + self.max_seq_len + 1]
         return src_input_ids, self.src_causal_mask, dst_input_ids
+
+def load_lines(folder_path) -> str:
+    lines = ''
+    for file in os.listdir(folder_path):
+        try:
+            with open(os.path.join(folder_path, file), 'r') as f:
+                lines += f.read()
+        except:
+            print(f'Error while reading {file}')
+    return lines

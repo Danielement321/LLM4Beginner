@@ -1,23 +1,24 @@
-import torch
-from torch.utils.data import DataLoader
-from transformers import AutoTokenizer
-from models import DecoderOnlyTransformer
-from config import *
-from tqdm import tqdm
-from generation import generate
-from data_utils import DatasetForCasualLM
-from utils import *
 import os
 # os.environ['HF_ENDPOINT'] = 'https://hf-mirror.com'
 os.environ['TRANSFORMERS_OFFLINE'] = '1'
+
+from tqdm import tqdm
+import torch
+from torch.utils.data import DataLoader
+from transformers import AutoTokenizer
+from config import *
+from data_utils import *
+from utils import *
 import matplotlib.pyplot as plt
+from generation import random_generate
+from models import DecoderOnlyTransformer
 
 tokenizer = AutoTokenizer.from_pretrained('google-bert/bert-base-chinese')
-lines = load_lines('data')
 CONFIG['vocab_size'] = tokenizer.vocab_size
 
+lines = load_lines('data')
 tokenized_lines = tokenizer(lines, return_tensors='pt')
-dataset = DatasetForCasualLM(tokenized_lines, num=20000, config=CONFIG)
+dataset = DatasetForCasualLM(tokenized_lines, num=TRAIN_CONFIG['sample_size'], config=CONFIG)
 dataloader = DataLoader(dataset, TRAIN_CONFIG['train_batch'], shuffle=True)
 
 config_check()
@@ -39,9 +40,11 @@ for epoch in range(TRAIN_CONFIG['epochs']):
         optimizer.step()
         losses.append(loss.item())
 
-torch.save(model.state_dict(), 'ckpts/model.pth')
+    torch.save(model.state_dict(), 'ckpts/model.pth')
 
 plt.plot(losses)
+plt.title('Training Loss For Decoder-Only Transformer')
 plt.savefig('losses.png')
 
-print(generate(model, tokenizer))
+print('Training Finished!')
+print(random_generate(model, tokenizer))

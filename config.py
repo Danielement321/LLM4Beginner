@@ -1,8 +1,8 @@
 CONFIG = {
     'd_model': 256,
     'max_seq_length': 64,
-    'num_heads': 4,
-    'decoder_depth': 4,
+    'num_heads': 8,
+    'decoder_depth': 6,
     'ffn_dim': 1024,
     'dropout': 0.1,
     'vocab_size': 999999,
@@ -10,6 +10,7 @@ CONFIG = {
 }
 
 TRAIN_CONFIG = {
+    'sample_size': 100000,
     'train_batch': 256,
     'lr': 0.001,
     'epochs': 3,

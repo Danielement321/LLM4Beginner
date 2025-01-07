@@ -5,12 +5,13 @@ from models import *
 from tokenizer import Tokenizer
 from torch.utils.data import DataLoader
 from matplotlib import pyplot as plt
-from generation import generate
+from tqdm import tqdm
+from generation import random_generate
 
-lines = open('data/xiyouji.txt', 'r').read()
+lines = load_lines('data')
 tokenizer = Tokenizer(lines)
 lines = tokenizer.encode(lines, return_pt=True)
-dataset = SimpleDatasetForCasualLM(lines, 50000, CONFIG)
+dataset = SimpleDatasetForCasualLM(lines, TRAIN_CONFIG['sample_size'], CONFIG)
 dataloader = DataLoader(dataset, batch_size=TRAIN_CONFIG['train_batch'])
 
 model = SimpleModel(CONFIG).to(CONFIG['device'])
@@ -19,7 +20,7 @@ optimizer = torch.optim.Adam(model.parameters())
 losses = []
 model.train()
 for epoch in range(TRAIN_CONFIG['epochs']):
-    for src, dst in dataloader:
+    for src, dst in tqdm(dataloader):
         src = src.to(CONFIG['device'])
         dst = dst.to(CONFIG['device'])
         logits, loss = model(src, dst)
@@ -28,7 +29,11 @@ for epoch in range(TRAIN_CONFIG['epochs']):
         optimizer.step()
         losses.append(loss.item())
 
-print(generate(model, tokenizer))
-torch.save(model.state_dict(), 'ckpts/model.pth')
+    torch.save(model.state_dict(), 'ckpts/SimpleModel.pth')
+
 plt.plot(losses)
+plt.title('Training Loss For Simple Model')
 plt.savefig('losses.png')
+
+print('Training Finished!')
+print(random_generate(model, tokenizer))
