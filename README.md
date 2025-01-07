@@ -8,7 +8,7 @@ This is a simple repository for LLM by a student in AI, with the purpose of enha
 ## Install
 The codes are bulit with PyTorch, and tokenizer from huggingface is used. So please install the following packages.
 
-    pip install torch transformers
+    pip install torch transformers einops
 
 You should create two folders: data & ckpts for data storage and checkpoints storage.
 
