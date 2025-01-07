@@ -3,7 +3,7 @@ import torch.nn as nn
 from torch.nn import functional as F
 
 from config import *
-from config import CONFIG
+from modules import *
 
 class Transformer(nn.Module):
     def __init__(self, config):
@@ -22,13 +22,20 @@ class Transformer(nn.Module):
 class DecoderOnlyTransformer(nn.Module):
     def __init__(self, config):
         super().__init__()
+        self.vocab_size = config['vocab_size']
         self.decoder = Decoder(config)
         self.linear = nn.Linear(config['d_model'], config['vocab_size'])
     
-    def forward(self, x, casual_mask):
-        decoded = self.decoder(x, casual_mask = casual_mask)
+    def forward(self, dst_input_ids, casual_mask = None, target_input_ids = None):
+        decoded = self.decoder(src = None, dst = dst_input_ids, casual_mask = casual_mask)
         logits = self.linear(decoded)
-        return logits
+
+        if target_input_ids is not None:
+            loss = F.cross_entropy(logits.view(-1, self.vocab_size), target_input_ids.view(-1))
+            return logits, loss
+
+        else:
+            return logits
 
 class SimpleModel(nn.Module):
     def __init__(self, config):

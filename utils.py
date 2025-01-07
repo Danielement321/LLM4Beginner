@@ -3,21 +3,17 @@ import warnings
 import einops
 from config import *
 from tqdm import tqdm
+import os
 
-def get_padding_mask(attention_mask: torch.Tensor) -> torch.Tensor:
-    mask = attention_mask - 1
-    mask = einops.rearrange(mask, 'b l -> b 1 l 1')
-    mask = mask.int() * CONFIG['-inf']
-    return mask
-
-def get_casual_mask(attention_mask: torch.Tensor) -> torch.Tensor:
-    seq_len = attention_mask.shape[1]
-    tri_mask = torch.triu(torch.ones([seq_len, seq_len]).bool(), diagonal=1)
-    pad_mask = get_padding_mask(attention_mask).bool()
-    cas_mask = (tri_mask + pad_mask).int() * CONFIG['-inf']
-    return cas_mask
+def load_lines(folder_path) -> str:
+    lines = ''
+    for file in os.listdir(folder_path):
+        with open(os.path.join(folder_path, file), 'r') as f:
+            lines += f.read()
+    return lines
 
 def config_check():
+    print(f'CONFIG:{CONFIG}')
     if CONFIG['device'] == 'cpu':
         warnings.warn('Using CPU as the main device! This can be changed in config.py')
     if CONFIG['vocab_size'] == 999999:

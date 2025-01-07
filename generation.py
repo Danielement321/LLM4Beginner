@@ -4,6 +4,7 @@ from config import *
 def generate(model, tokenizer, max_new_tokens = 50):
     idx = torch.randint(0, CONFIG['vocab_size'], (5, 1)).long().to(CONFIG['device'])
 
+    model.eval()
     for _ in range(max_new_tokens):
         logits = model(idx[:, -CONFIG['max_seq_length'] :])
         logits = torch.softmax(logits[:, -1, :] / GENERATE_CONFIG['temperature'], dim=-1)

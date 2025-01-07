@@ -10,7 +10,7 @@ from generation import generate
 lines = open('data/xiyouji.txt', 'r').read()
 tokenizer = Tokenizer(lines)
 lines = tokenizer.encode(lines, return_pt=True)
-dataset = DatasetForCasualLM(lines, 50000, CONFIG)
+dataset = SimpleDatasetForCasualLM(lines, 50000, CONFIG)
 dataloader = DataLoader(dataset, batch_size=TRAIN_CONFIG['train_batch'])
 
 model = SimpleModel(CONFIG).to(CONFIG['device'])
