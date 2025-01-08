@@ -15,6 +15,7 @@ You should create two folders: data & ckpts for data storage and checkpoints sto
     mkdir data ckpts
 
 The data folder contains files in text for training, e.g. an e-book in txt file.
+**Important:** If you do not have local cache for tokenizer, please uncomment `os.environ['TRANSFORMERS_OFFLINE'] = '1'`
 
 ## Train
 If you want to train the Decoder-Only Transformer, run the following command
@@ -24,4 +25,4 @@ If you want to train the Decoder-Only Transformer, run the following command
 Please note that you should first modify `config.py` according to your device.
 
 ## Generate
-A random generation task is given in `RandomGenerate.ipynb`. Before generating, please make sure that your trained weights is ready.
+A random generation task is given in `RandomGenerate.ipynb`. Before generating, please make sure that your trained weights is ready. Besides, a notebook for generation according to given context is given in `ContextGenerate.ipynb`. Enjoy!

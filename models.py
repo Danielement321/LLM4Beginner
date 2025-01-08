@@ -48,6 +48,7 @@ class SimpleModel(nn.Module):
             nn.Linear(config['ffn_dim'], config['d_model'])
         )
         self.out = nn.Linear(config['d_model'], config['vocab_size'])
+        print("Model Parameters:", f'{sum([m.numel() for m in self.parameters()]):,}')
 
     def forward(self, src, dst = None):
         x = self.embedding(src)

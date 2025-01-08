@@ -1,29 +1,39 @@
+import os
+# os.environ['HF_ENDPOINT'] = 'https://hf-mirror.com'
+os.environ['TRANSFORMERS_OFFLINE'] = '1'
+
+from tqdm import tqdm
 import torch
+from torch.utils.data import DataLoader
+from transformers import AutoTokenizer
 from config import *
 from data_utils import *
-from models import *
-from tokenizer import Tokenizer
-from torch.utils.data import DataLoader
-from matplotlib import pyplot as plt
-from tqdm import tqdm
+from utils import *
+import matplotlib.pyplot as plt
 from generation import random_generate
+from models import SimpleModel
 
-lines = load_lines('data')
-tokenizer = Tokenizer(lines)
-lines = tokenizer.encode(lines, return_pt=True)
-dataset = SimpleDatasetForCasualLM(lines, TRAIN_CONFIG['sample_size'], CONFIG)
-dataloader = DataLoader(dataset, batch_size=TRAIN_CONFIG['train_batch'])
+tokenizer = AutoTokenizer.from_pretrained('google-bert/bert-base-chinese')
+CONFIG['vocab_size'] = tokenizer.vocab_size
 
+lines = load_lines('data/*/*.csv')
+tokenized_lines = tokenizer(lines[:], return_tensors='pt')
+dataset = DatasetForCasualLM(tokenized_lines, num=TRAIN_CONFIG['sample_size'], config=CONFIG)
+dataloader = DataLoader(dataset, TRAIN_CONFIG['train_batch'], shuffle=True)
+
+config_check()
 model = SimpleModel(CONFIG).to(CONFIG['device'])
-optimizer = torch.optim.Adam(model.parameters())
+optimizer = torch.optim.Adam(model.parameters(), lr=TRAIN_CONFIG['lr'])
 
 losses = []
+
 model.train()
 for epoch in range(TRAIN_CONFIG['epochs']):
-    for src, dst in tqdm(dataloader):
-        src = src.to(CONFIG['device'])
-        dst = dst.to(CONFIG['device'])
-        logits, loss = model(src, dst)
+    for src_input_ids, _, dst_input_ids in tqdm(dataloader):
+        src_input_ids = src_input_ids.to(CONFIG['device'])
+        dst_input_ids = dst_input_ids.to(CONFIG['device'])
+
+        logits, loss = model(src_input_ids, dst_input_ids)
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
@@ -32,7 +42,7 @@ for epoch in range(TRAIN_CONFIG['epochs']):
     torch.save(model.state_dict(), 'ckpts/SimpleModel.pth')
 
 plt.plot(losses)
-plt.title('Training Loss For Simple Model')
+plt.title('Training Loss SimpleModel')
 plt.savefig('losses.png')
 
 print('Training Finished!')

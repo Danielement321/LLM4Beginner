@@ -16,7 +16,7 @@ from models import DecoderOnlyTransformer
 tokenizer = AutoTokenizer.from_pretrained('google-bert/bert-base-chinese')
 CONFIG['vocab_size'] = tokenizer.vocab_size
 
-lines = load_lines('data')
+lines = load_lines('data/*/*.csv')
 tokenized_lines = tokenizer(lines, return_tensors='pt')
 dataset = DatasetForCasualLM(tokenized_lines, num=TRAIN_CONFIG['sample_size'], config=CONFIG)
 dataloader = DataLoader(dataset, TRAIN_CONFIG['train_batch'], shuffle=True)
