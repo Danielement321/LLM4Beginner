@@ -32,4 +32,6 @@ def load_lines(folder_path) -> str:
                 lines += f.read()
         except:
             print(f'Error while reading {file}')
+    if len(lines) == 0:
+        raise RuntimeError('Length of training data is 0!')
     return lines

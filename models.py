@@ -11,6 +11,7 @@ class Transformer(nn.Module):
         self.encoder = Encoder(config)
         self.decoder = Decoder(config)
         self.linear = nn.Linear(config['d_model'], config['vocab_size'])
+        print("Model Parameters:", f'{sum([m.numel() for m in self.parameters()]):,}')
     
     def forward(self, src, dst, padding_mask = None, casual_mask = None):
         src = self.encoder(src, padding_mask)
@@ -25,6 +26,7 @@ class DecoderOnlyTransformer(nn.Module):
         self.vocab_size = config['vocab_size']
         self.decoder = Decoder(config)
         self.linear = nn.Linear(config['d_model'], config['vocab_size'])
+        print("Model Parameters:", f'{sum([m.numel() for m in self.parameters()]):,}')
     
     def forward(self, dst_input_ids, casual_mask = None, target_input_ids = None):
         decoded = self.decoder(src = None, dst = dst_input_ids, casual_mask = casual_mask)

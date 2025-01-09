@@ -1,17 +1,17 @@
 CONFIG = {
-    'd_model': 512,
+    'd_model': 768,
     'max_seq_length': 64,
-    'num_heads': 8,
+    'num_heads': 12,
     'decoder_depth': 12,
-    'ffn_dim': 2048,
+    'ffn_dim': 3072,
     'dropout': 0.1,
     'vocab_size': 999999,
     'device': 'cuda',
 }
 
 TRAIN_CONFIG = {
-    'sample_size': 1500000,
-    'train_batch': 128,
+    'sample_size': 89000,
+    'train_batch': 96,
     'lr': 0.001,
     'epochs': 3,
     'eval_size': 0.1,

@@ -20,10 +20,12 @@ lines = load_lines('data/*/*.csv')
 tokenized_lines = tokenizer(lines, return_tensors='pt')
 dataset = DatasetForCasualLM(tokenized_lines, num=TRAIN_CONFIG['sample_size'], config=CONFIG)
 dataloader = DataLoader(dataset, TRAIN_CONFIG['train_batch'], shuffle=True)
+steps = len(dataset)/TRAIN_CONFIG['train_batch']*TRAIN_CONFIG['epochs']
 
 config_check()
 model = DecoderOnlyTransformer(CONFIG).to(CONFIG['device'])
-optimizer = torch.optim.Adam(model.parameters(), lr=TRAIN_CONFIG['lr'])
+optimizer = torch.optim.AdamW(model.parameters(), lr=TRAIN_CONFIG['lr'])
+scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, steps)
 
 losses = []
 
@@ -38,9 +40,12 @@ for epoch in range(TRAIN_CONFIG['epochs']):
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
+        scheduler.step()
+
+        tqdm.write(f'loss:{loss.item()}, lr:{scheduler.get_last_lr()}')
         losses.append(loss.item())
 
-    torch.save(model.state_dict(), 'ckpts/model.pth')
+    torch.save(model.state_dict(), 'ckpts/DecoderOnlyTransformer.pth')
 
 plt.plot(losses)
 plt.title('Training Loss For Decoder-Only Transformer')

@@ -25,4 +25,4 @@ If you want to train the Decoder-Only Transformer, run the following command
 Please note that you should first modify `config.py` according to your device.
 
 ## Generate
-A random generation task is given in `RandomGenerate.ipynb`. Before generating, please make sure that your trained weights is ready. Besides, a notebook for generation according to given context is given in `ContextGenerate.ipynb`. Enjoy!
+A generation task is given in `Generate.ipynb`. Before generating, please make sure that your trained weights is ready. Enjoy!
