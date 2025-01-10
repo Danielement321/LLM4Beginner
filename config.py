@@ -11,7 +11,6 @@ CONFIG = {
 }
 
 TRAIN_CONFIG = {
-    'sample_size':1300000,
     'train_batch': 96,
     'lr': 0.001,
     'epochs': 2,

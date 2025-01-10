@@ -12,7 +12,9 @@ class DatasetForCasualLM(Dataset):
         self.tokenized = tokenized['input_ids'].squeeze()
         self.total_seq_length = self.tokenized.shape[0]
         self.src_causal_mask = torch.triu(torch.ones([self.max_seq_len, self.max_seq_len]), diagonal=1).unsqueeze(0) * (-1e9)
-        assert self.total_seq_length - config['max_seq_length'] >= num
+        if self.total_seq_length - config['max_seq_length'] < num:
+            raise RuntimeError(f'All data {self.total_seq_length} is too small for num!')
+        print(f'Total tokens in dataset: {self.total_seq_length}')
     
     def __len__(self):
         return self.num

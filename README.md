@@ -11,9 +11,9 @@ The codes are bulit with PyTorch, and tokenizer from huggingface is used. So ple
 
     pip install torch transformers einops
 
-You should create two folders: data & ckpts for data storage and checkpoints storage.
+You should create three folders: data & ckpts for data storage and checkpoints storage, and runs for TensorBoard log.
 
-    mkdir data ckpts
+    mkdir data ckpts runs
 
 The data folder contains files in text for training, e.g. an e-book in txt file.
 **Important:** If you do not have local cache for tokenizer, please uncomment `os.environ['TRANSFORMERS_OFFLINE'] = '1'`

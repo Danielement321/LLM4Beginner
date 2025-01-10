@@ -9,16 +9,17 @@ from transformers import AutoTokenizer
 from config import *
 from data_utils import *
 from utils import *
-import matplotlib.pyplot as plt
 from generate_utils import random_generate
 from models import DecoderOnlyTransformer
+from torch.utils.tensorboard import SummaryWriter
 
+writer = SummaryWriter('runs')
 tokenizer = AutoTokenizer.from_pretrained(CONFIG['tokenizer'])
 CONFIG['vocab_size'] = tokenizer.vocab_size
 
-lines = load_lines('data/english/*.txt')
-tokenized_lines = tokenizer(lines, return_tensors='pt')
-dataset = DatasetForCasualLM(tokenized_lines, num=TRAIN_CONFIG['sample_size'], config=CONFIG)
+lines = load_lines('data/*.txt')
+tokenized_lines = tokenizer(lines[:20000000], return_tensors='pt')
+dataset = DatasetForCasualLM(tokenized_lines, num=2000000, config=CONFIG)
 dataloader = DataLoader(dataset, TRAIN_CONFIG['train_batch'], shuffle=True)
 steps = len(dataset)/TRAIN_CONFIG['train_batch']*TRAIN_CONFIG['epochs']
 
@@ -27,11 +28,9 @@ model = DecoderOnlyTransformer(CONFIG).to(CONFIG['device'])
 optimizer = torch.optim.AdamW(model.parameters(), lr=TRAIN_CONFIG['lr'])
 scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, steps)
 
-losses = []
-
 model.train()
 for epoch in range(TRAIN_CONFIG['epochs']):
-    for src_input_ids, src_casual_mask, dst_input_ids in tqdm(dataloader):
+    for step, (src_input_ids, src_casual_mask, dst_input_ids) in enumerate(tqdm(dataloader)):
         src_input_ids = src_input_ids.to(CONFIG['device'])
         src_casual_mask = src_casual_mask.to(CONFIG['device'])
         dst_input_ids = dst_input_ids.to(CONFIG['device'])
@@ -42,14 +41,11 @@ for epoch in range(TRAIN_CONFIG['epochs']):
         optimizer.step()
         scheduler.step()
 
-        tqdm.write(f'loss:{loss.item()}, lr:{scheduler.get_last_lr()}')
-        losses.append(loss.item())
+        tqdm.write(f'loss:{loss.item()}, lr:{scheduler.get_last_lr()[0]}')
+        writer.add_scalar('loss', loss.item(), (epoch + 1) * step)
+        writer.add_scalar('lr', scheduler.get_last_lr()[0], (epoch + 1) * step)
 
     torch.save(model.state_dict(), 'ckpts/DecoderOnlyTransformer.pth')
-
-plt.plot(losses)
-plt.title('Training Loss For Decoder-Only Transformer')
-plt.savefig('losses.png')
 
 print('Training Finished!')
 print(random_generate(model, tokenizer))
