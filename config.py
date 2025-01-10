@@ -7,13 +7,14 @@ CONFIG = {
     'dropout': 0.1,
     'vocab_size': 999999,
     'device': 'cuda',
+    'tokenizer': 'google-bert/bert-base-uncased',
 }
 
 TRAIN_CONFIG = {
-    'sample_size': 89000,
+    'sample_size':1300000,
     'train_batch': 96,
     'lr': 0.001,
-    'epochs': 3,
+    'epochs': 2,
     'eval_size': 0.1,
     'eval_batch': 96,
 }

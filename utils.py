@@ -1,8 +1,8 @@
-import torch
+import matplotlib.pyplot as plt
 import warnings
-import einops
 from config import *
 from tqdm import tqdm
+import math
 import os
 
 def config_check():
@@ -15,3 +15,23 @@ def config_check():
         raise RuntimeError('d_model % num_heads must be 0!')
     if GENERATE_CONFIG['temperature'] <=0 :
         raise RuntimeError['temperature in GENERATION_CONFIG must > 0!']
+
+def plot_attention(model, layer = 0, batch_idx = 0):
+    if not hasattr(model, 'attention_map') or not model.attention_map:
+        raise RuntimeError('Current model does not support attention_map, please run `model.apply_attention_map()` first!')
+    model.eval()
+    atten = model.decoder.decoder_blocks[layer].self_attention.attention_weights[batch_idx].cpu().detach().numpy()
+    num_heads = atten.shape[0]
+
+    height = int(math.sqrt(num_heads))
+    width = math.ceil(num_heads / height)
+    fig, axs = plt.subplots(height, width, figsize=(15, 10))
+    for i in range(num_heads):
+        ax = axs[i // width, i % width]
+        cax = ax.matshow(atten[i], cmap='viridis')
+        ax.set_title(f'Head {i+1}')
+        ax.axis('off')
+    
+    fig.suptitle(f'Attention Map For Layer{layer}')
+    plt.tight_layout()
+    plt.show()

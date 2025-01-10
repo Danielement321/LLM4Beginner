@@ -55,25 +55,61 @@ class MultiHeadAttention(nn.Module):
         if mask is not None:
             score = self.softmax((q @ k + mask)/self.d_k**0.5) @ v
         else:
+            print('Casual Mask is not used!')
             score = self.softmax((q @ k)/self.d_k**0.5) @ v
 
         score = rearrange(score, 'b h l k -> b l (h k)')
         return score
 
-    def forward(self):
-        raise NotImplementedError("This method must be implemented in downstream task!")
+class MultiHeadAttentionWithMap(MultiHeadAttention):
+    def __init__(self, config):
+        super().__init__(config)
+        self.attention_weights = torch.randn([1, config['num_heads'], config['max_seq_length'], config['max_seq_length']])
+
+    def attention(self, q, k, v, mask = None):
+        q = self.Q_norm(q)
+        k = self.K_norm(k)
+        v = self.V_norm(v)
+
+        q = self.Q_map(q)
+        k = self.K_map(k)
+        v = self.V_map(v)
+
+        q = rearrange(q, 'b l (h k) -> b h l k', h=self.num_heads)
+        k = rearrange(k, 'b l (h k) -> b h k l', h=self.num_heads)
+        v = rearrange(v, 'b l (h k) -> b h l k', h=self.num_heads)
+
+        scores = (q @ k + mask) / self.d_k**0.5
+
+        self.attention_weights = self.softmax(scores)
+        score = self.attention_weights @ v
+
+        score = rearrange(score, 'b h l k -> b l (h k)')
+        return score
 
 
 class MultiHeadSelfAttention(MultiHeadAttention):
     def __init__(self, config):
         super().__init__(config)
 
-    def forward(self, src, padding_mask):
-        src_ = src.clone()
-        src = self.attention(q=src, k=src, v=src, mask=padding_mask)
-        src = self.fc(src)
-        src = self.dropout(src)
-        return src + src_
+    def forward(self, x, padding_mask):
+        x_ = x.clone()
+        x = self.attention(q=x, k=x, v=x, mask=padding_mask)
+        x = self.fc(x)
+        x = self.dropout(x)
+        return x + x_
+
+
+class MultiHeadSelfAttentionWithMap(MultiHeadAttentionWithMap):
+    def __init__(self, config):
+        super().__init__(config)
+
+    def forward(self, x, padding_mask):
+        x_ = x.clone()
+        x = self.attention(q=x, k=x, v=x, mask=padding_mask)
+        x = self.fc(x)
+        x = self.dropout(x)
+        return x + x_
 
 
 class MultiHeadCrossAttention(MultiHeadAttention):
@@ -133,13 +169,22 @@ class DecoderBlock(nn.Module):
     def __init__(self, config):
         super().__init__()
         self.self_attention = MultiHeadSelfAttention(config)
-        self.cross_attention = MultiHeadCrossAttention(config)
         self.ffn = FFN(config)
+    
+    def forward(self, dst, casual_mask = None):
+        dst = self.self_attention(dst, casual_mask)
+        dst = self.ffn(dst)
+        return dst
+
+
+class DecoderBlockWithCrossAttention(DecoderBlock):
+    def __init__(self, config):
+        super().__init__()
+        self.cross_attention = MultiHeadCrossAttention(config)
     
     def forward(self, src, dst, padding_mask = None, casual_mask = None):
         dst = self.self_attention(dst, casual_mask)
-        if src is not None: # For decoder-only architecture
-            dst = self.cross_attention(src, dst, padding_mask)
+        dst = self.cross_attention(src, dst, padding_mask)
         dst = self.ffn(dst)
         return dst
 
@@ -152,11 +197,11 @@ class Decoder(nn.Module):
         self.embed = nn.Embedding(config['vocab_size'], config['d_model'])
         self.decoder_blocks = nn.ModuleList([DecoderBlock(config) for _ in range(config['decoder_depth'])])
     
-    def forward(self, src, dst, padding_mask = None, casual_mask = None):
+    def forward(self, dst, casual_mask = None):
         dst = self.embed(dst)
         dst = self.position_encode(dst)
         for block in self.decoder_blocks:
-            dst = block(src, dst, padding_mask, casual_mask)
+            dst = block(dst = dst, casual_mask = casual_mask)
         return dst
     
     @torch.no_grad()
@@ -171,3 +216,15 @@ class Decoder(nn.Module):
         position_embedding[:, :, 1::2] = cos_values.unsqueeze(0)  # [batch_size, seq_len, d_model/2]
         x += position_embedding
         return x
+
+class DecoderWithCrossAttention(Decoder):
+    def __init__(self, config):
+        super().__init__()
+        self.decoder_blocks = nn.ModuleList([DecoderBlockWithCrossAttention(config) for _ in range(config['decoder_depth'])])
+    
+    def forward(self, src, dst, padding_mask = None, casual_mask = None):
+        dst = self.embed(dst)
+        dst = self.position_encode(dst)
+        for block in self.decoder_blocks:
+            dst = block(src, dst, padding_mask, casual_mask)
+        return dst

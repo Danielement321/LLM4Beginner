@@ -5,8 +5,9 @@ def random_generate(model, tokenizer, batch_size = 5, max_new_tokens = 50):
     idx = torch.randint(0, CONFIG['vocab_size'], (batch_size, 1)).long().to(CONFIG['device'])
 
     model.eval()
-    for _ in range(max_new_tokens):
-        logits = model(idx[:, -CONFIG['max_seq_length'] :])
+    for length in range(1, max_new_tokens + 1):
+        casual_mask = torch.triu(torch.ones([length, length]), diagonal=1).unsqueeze(0).to(CONFIG['device'])*(-1e9)
+        logits = model(idx[:, -CONFIG['max_seq_length'] :], casual_mask)
         logits = torch.softmax(logits[:, -1, :] / GENERATE_CONFIG['temperature'], dim=-1)
         if GENERATE_CONFIG['greedy']:
             idx_next = torch.argmax(logits, dim=-1).unsqueeze(1)
@@ -28,8 +29,9 @@ def context_generate(context: str, model, tokenizer, batch_size = 5, max_new_tok
         raise RuntimeError(f'max_new_tokens:{max_new_tokens} must > context length {idx.shape[1]}')
 
     model.eval()
-    for _ in range(idx.shape[1], max_new_tokens):
-        logits = model(idx[:, -CONFIG['max_seq_length'] :])
+    for length in range(idx.shape[1], max_new_tokens + idx.shape[1]):
+        casual_mask = torch.triu(torch.ones([length, length]), diagonal=1).unsqueeze(0).to(CONFIG['device'])*(-1e9)
+        logits = model(idx[:, -CONFIG['max_seq_length'] :], casual_mask)
         logits = torch.softmax(logits[:, -1, :] / GENERATE_CONFIG['temperature'], dim=-1)
         if GENERATE_CONFIG['greedy']:
             idx_next = torch.argmax(logits, dim=-1).unsqueeze(1)

@@ -23,13 +23,15 @@ class Transformer(nn.Module):
 class DecoderOnlyTransformer(nn.Module):
     def __init__(self, config):
         super().__init__()
+        self.config = config
         self.vocab_size = config['vocab_size']
         self.decoder = Decoder(config)
         self.linear = nn.Linear(config['d_model'], config['vocab_size'])
+        self.attention_map = False
         print("Model Parameters:", f'{sum([m.numel() for m in self.parameters()]):,}')
     
-    def forward(self, dst_input_ids, casual_mask = None, target_input_ids = None):
-        decoded = self.decoder(src = None, dst = dst_input_ids, casual_mask = casual_mask)
+    def forward(self, dst_input_ids, casual_mask, target_input_ids = None):
+        decoded = self.decoder(dst = dst_input_ids, casual_mask = casual_mask)
         logits = self.linear(decoded)
 
         if target_input_ids is not None:
@@ -38,6 +40,13 @@ class DecoderOnlyTransformer(nn.Module):
 
         else:
             return logits
+        
+    def apply_attention_map(self):
+        self.attention_map = True
+        for block in self.decoder.decoder_blocks:
+            if isinstance(block, DecoderBlock):
+                block.self_attention = MultiHeadSelfAttentionWithMap(self.config)
+                block.to(self.config['device'])
 
 class SimpleModel(nn.Module):
     def __init__(self, config):

@@ -10,13 +10,13 @@ from config import *
 from data_utils import *
 from utils import *
 import matplotlib.pyplot as plt
-from generation import random_generate
+from generate_utils import random_generate
 from models import DecoderOnlyTransformer
 
-tokenizer = AutoTokenizer.from_pretrained('google-bert/bert-base-chinese')
+tokenizer = AutoTokenizer.from_pretrained(CONFIG['tokenizer'])
 CONFIG['vocab_size'] = tokenizer.vocab_size
 
-lines = load_lines('data/*/*.csv')
+lines = load_lines('data/english/*.txt')
 tokenized_lines = tokenizer(lines, return_tensors='pt')
 dataset = DatasetForCasualLM(tokenized_lines, num=TRAIN_CONFIG['sample_size'], config=CONFIG)
 dataloader = DataLoader(dataset, TRAIN_CONFIG['train_batch'], shuffle=True)
