@@ -55,7 +55,7 @@ class MultiHeadAttention(nn.Module):
         if mask is not None:
             score = self.softmax((q @ k + mask)/self.d_k**0.5) @ v
         else:
-            print('Casual Mask is not used!')
+            # print('Casual Mask is not used!')
             score = self.softmax((q @ k)/self.d_k**0.5) @ v
 
         score = rearrange(score, 'b h l k -> b l (h k)')
@@ -144,9 +144,11 @@ class Encoder(nn.Module):
         self.embed = nn.Embedding(config['vocab_size'], config['d_model'])
         self.encoder_blocks = nn.ModuleList([EncoderBlock(config) for _ in range(config['encoder_depth'])])
     
-    def forward(self, x, mask = None):
-        x = self.embed(x)
-        x = self.position_encode(x)
+    def forward(self, x, mask = None, embed = True):
+        if embed:
+            x = self.embed(x)
+            x = self.position_encode(x)
+
         for block in self.encoder_blocks:
             x = block(x, mask)
         return x

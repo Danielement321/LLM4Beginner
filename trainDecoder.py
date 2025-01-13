@@ -13,23 +13,28 @@ from generate_utils import random_generate
 from models import DecoderOnlyTransformer
 from torch.utils.tensorboard import SummaryWriter
 
+epochs = 1
+lr = 1e-3
+train_batch = 96
+sample_size = 2000
+
 writer = SummaryWriter('runs')
 tokenizer = AutoTokenizer.from_pretrained(CONFIG['tokenizer'])
 CONFIG['vocab_size'] = tokenizer.vocab_size
 
 lines = load_lines('data/*.txt')
-tokenized_lines = tokenizer(lines[:20000000], return_tensors='pt')
-dataset = DatasetForCasualLM(tokenized_lines, num=2000000, config=CONFIG)
-dataloader = DataLoader(dataset, TRAIN_CONFIG['train_batch'], shuffle=True)
-steps = len(dataset)/TRAIN_CONFIG['train_batch']*TRAIN_CONFIG['epochs']
+tokenized_lines = tokenizer(lines[:20000], return_tensors='pt')
+dataset = DatasetForCasualLM(tokenized_lines, num=sample_size, config=CONFIG)
+dataloader = DataLoader(dataset, train_batch, shuffle=True)
+steps = len(dataset)/train_batch*epochs
 
 config_check()
 model = DecoderOnlyTransformer(CONFIG).to(CONFIG['device'])
-optimizer = torch.optim.AdamW(model.parameters(), lr=TRAIN_CONFIG['lr'])
+optimizer = torch.optim.AdamW(model.parameters(), lr=lr)
 scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, steps)
 
 model.train()
-for epoch in range(TRAIN_CONFIG['epochs']):
+for epoch in range(epochs):
     for step, (src_input_ids, src_casual_mask, dst_input_ids) in enumerate(tqdm(dataloader)):
         src_input_ids = src_input_ids.to(CONFIG['device'])
         src_casual_mask = src_casual_mask.to(CONFIG['device'])

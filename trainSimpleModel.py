@@ -10,25 +10,30 @@ from config import *
 from data_utils import *
 from utils import *
 import matplotlib.pyplot as plt
-from generation import random_generate
+from generate_utils import random_generate
 from models import SimpleModel
+
+epochs = 1
+lr = 1e-3
+train_batch = 96
+sample_size = 2000
 
 tokenizer = AutoTokenizer.from_pretrained('google-bert/bert-base-chinese')
 CONFIG['vocab_size'] = tokenizer.vocab_size
 
-lines = load_lines('data/*/*.csv')
-tokenized_lines = tokenizer(lines[:], return_tensors='pt')
-dataset = DatasetForCasualLM(tokenized_lines, num=TRAIN_CONFIG['sample_size'], config=CONFIG)
-dataloader = DataLoader(dataset, TRAIN_CONFIG['train_batch'], shuffle=True)
+lines = load_lines('data/*.txt')
+tokenized_lines = tokenizer(lines[:20000], return_tensors='pt')
+dataset = DatasetForCasualLM(tokenized_lines, num=sample_size, config=CONFIG)
+dataloader = DataLoader(dataset, train_batch, shuffle=True)
 
 config_check()
 model = SimpleModel(CONFIG).to(CONFIG['device'])
-optimizer = torch.optim.Adam(model.parameters(), lr=TRAIN_CONFIG['lr'])
+optimizer = torch.optim.Adam(model.parameters(), lr=lr)
 
 losses = []
 
 model.train()
-for epoch in range(TRAIN_CONFIG['epochs']):
+for epoch in range(epochs):
     for src_input_ids, _, dst_input_ids in tqdm(dataloader):
         src_input_ids = src_input_ids.to(CONFIG['device'])
         dst_input_ids = dst_input_ids.to(CONFIG['device'])

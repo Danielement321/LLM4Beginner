@@ -14,7 +14,13 @@ def config_check():
     if CONFIG['d_model'] % CONFIG['num_heads'] != 0:
         raise RuntimeError('d_model % num_heads must be 0!')
     if GENERATE_CONFIG['temperature'] <=0 :
-        raise RuntimeError['temperature in GENERATION_CONFIG must > 0!']
+        raise RuntimeError('temperature in GENERATION_CONFIG must > 0!')
+
+def vit_config_check():
+    print(f'VIT CONFIG:{VIT_CONFIG}')
+    config_check()
+    if VIT_CONFIG['image_size'] % VIT_CONFIG['patch_size'] != 0:
+        raise RuntimeError(f'image_size % patch_size must be 0!')
 
 def plot_attention(model, layer = 0, batch_idx = 0):
     if not hasattr(model, 'attention_map') or not model.attention_map:
