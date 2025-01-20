@@ -16,14 +16,14 @@ from torch.utils.tensorboard import SummaryWriter
 epochs = 1
 lr = 1e-3
 train_batch = 96
-sample_size = 2000
+sample_size = 40000
 
 writer = SummaryWriter('runs')
 tokenizer = AutoTokenizer.from_pretrained(CONFIG['tokenizer'])
 CONFIG['vocab_size'] = tokenizer.vocab_size
 
 lines = load_lines('data/*.txt')
-tokenized_lines = tokenizer(lines[:20000], return_tensors='pt')
+tokenized_lines = tokenizer(lines[:], return_tensors='pt')
 dataset = DatasetForCasualLM(tokenized_lines, num=sample_size, config=CONFIG)
 dataloader = DataLoader(dataset, train_batch, shuffle=True)
 steps = len(dataset)/train_batch*epochs

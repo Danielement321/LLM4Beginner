@@ -6,17 +6,24 @@ from utils import vit_config_check
 from models import VITForClassification
 from tqdm import tqdm
 
-epochs = 5
+torch.manual_seed(3407)
+
+epochs = 10
+train_batch_size = 512
+eval_batch_size = 1024
 
 transform = T.Compose([T.ToTensor(), T.Normalize([0.5], [0.5])])
 train_dataset = torchvision.datasets.CIFAR10('data/CIFAR10', train=True, transform=transform, download=True)
 test_dataset = torchvision.datasets.CIFAR10('data/CIFAR10', train=False, transform=transform, download=True)
-train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=256, shuffle=True)
-test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=512, shuffle=False)
+train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=train_batch_size, shuffle=True)
+test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=eval_batch_size, shuffle=False)
 
 VIT_CONFIG['image_size'] = 32
 VIT_CONFIG['patch_size'] = 4
-CONFIG['num_heads'] = 4
+CONFIG['num_heads'] = 8
+CONFIG['encoder_depth'] = 3
+CONFIG['d_model'] = 256
+CONFIG['ffn_dim'] = 512
 vit_config_check()
 
 model = VITForClassification(VIT_CONFIG, num_classes=10).to(VIT_CONFIG['device'])
@@ -44,6 +51,6 @@ for epoch in range(epochs):
             ans = torch.argmax(pred, dim=1)
             correct += (ans == y).sum()
             total += y.shape[0]
-    print(f'Accuracy after epoch {epoch + 1}:{(correct/total).item()}')
+    print(f'Accuracy after epoch {epoch + 1}: {(correct/total).item()}')
 
-    torch.save(model.state_dict(), 'ckpts/VIT.pth')
+torch.save(model.state_dict(), 'ckpts/VIT.pth')

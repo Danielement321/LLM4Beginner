@@ -12,7 +12,7 @@ class FFN(nn.Module):
             nn.Linear(in_features=config['ffn_dim'], out_features=config['d_model']),
             nn.Dropout(p=config['dropout']),
         )
-        self.norm = nn.LayerNorm(config['d_model'])
+        self.norm = RMSNorm(config)
         self.dropout = nn.Dropout(config['dropout'])
 
     def forward(self, x):
@@ -23,6 +23,19 @@ class FFN(nn.Module):
         return x + x_
 
 
+class RMSNorm(nn.Module):
+    def __init__(self, config):
+        super().__init__()
+        self.weight = nn.Parameter(torch.ones(config['d_model']))
+        self.eps = config['eps']
+    
+    def forward(self, x):
+        rms = torch.sqrt(torch.mean(x**2, dim=-1, keepdim=True) + self.eps)
+        x = x / rms
+        x = x * self.weight
+        return x
+
+
 class MultiHeadAttention(nn.Module):
     def __init__(self, config):
         super().__init__()
@@ -30,9 +43,9 @@ class MultiHeadAttention(nn.Module):
         self.d_k = config['d_model'] // config['num_heads']
         self.num_heads = config['num_heads']
         self.softmax = nn.Softmax(dim=-1)
-        self.Q_norm = nn.LayerNorm(config['d_model'])
-        self.K_norm = nn.LayerNorm(config['d_model'])
-        self.V_norm = nn.LayerNorm(config['d_model'])
+        self.Q_norm = RMSNorm(config)
+        self.K_norm = RMSNorm(config)
+        self.V_norm = RMSNorm(config)
         self.Q_map = nn.Linear(config['d_model'], config['d_model'])
         self.K_map = nn.Linear(config['d_model'], config['d_model'])
         self.V_map = nn.Linear(config['d_model'], config['d_model'])
@@ -60,6 +73,7 @@ class MultiHeadAttention(nn.Module):
 
         score = rearrange(score, 'b h l k -> b l (h k)')
         return score
+
 
 class MultiHeadAttentionWithMap(MultiHeadAttention):
     def __init__(self, config):

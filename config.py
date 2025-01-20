@@ -9,6 +9,7 @@ CONFIG = {
     'ffn_dim': 3072,
     'dropout': 0.1,
     'vocab_size': 999999,
+    'eps': 1e-6,
     'device': 'cuda' if torch.cuda.is_available() else 'cpu',
     'tokenizer': 'google-bert/bert-base-uncased',
 }
