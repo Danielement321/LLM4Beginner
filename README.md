@@ -1,5 +1,5 @@
 # LLM4Beginner
-This is a simple repository for LLM by a student in AI, with the purpose of enhancing LLM engineering ability. I am also a beginner in LLM, so please feel free to discuss if you find any problems.
+This is a simple repository for LLM by a student in AI, with the purpose of enhancing LLM engineering ability. I am also a beginner in LLM, so please feel free to discuss if you find any problems. This repository aims to build Large (Vision) Language Models from scratch in a unified format with `transformers` models, so it is not highly dependent on this package and useful for understanding the basic knowledge of LLM.
 
 ## This repository contains
 1. A simple fully connected model for generation.

@@ -5,13 +5,22 @@ from tqdm import tqdm
 import math
 import os
 
-def config_check():
-    print(f'CONFIG:{CONFIG}')
-    if CONFIG['device'] == 'cpu':
-        warnings.warn('Using CPU as the main device! This can be changed in config.py')
-    if CONFIG['vocab_size'] == 999999:
-        warnings.warn('The vocab_size is not set according to the size of tokenizer, this might cause errors or OOM!')
-    if CONFIG['d_model'] % CONFIG['num_heads'] != 0:
+class Colors:
+    RED = '\033[1m\033[31m'
+    GREEN = '\033[1m\033[32m'
+    BLUE = '\033[1m\033[34m'
+    YELLOW = '\033[1m\033[33m'
+    MAGENTA = '\033[1m\033[35m'
+    CYAN = '\033[1m\033[36m'
+    RESET = '\033[1m\033[0m'
+
+def config_check(config):
+    print(f'CONFIG:{config}')
+    if config.device == 'cpu':
+        print(Colors.RED + 'CUDA is not availabel! Using CPU as the main device.' + Colors.RESET)
+    if config.vocab_size == 999999:
+        print(Colors.RED + 'The vocab_size is not set according to the size of tokenizer, this might cause OOM!' + Colors.RESET)
+    if config.hidden_size % config.num_attention_heads != 0:
         raise RuntimeError('d_model % num_heads must be 0!')
     if GENERATE_CONFIG['temperature'] <=0 :
         raise RuntimeError('temperature in GENERATION_CONFIG must > 0!')

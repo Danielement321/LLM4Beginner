@@ -9,38 +9,38 @@ from transformers import AutoTokenizer
 from config import *
 from data_utils import *
 from utils import *
-from generate_utils import random_generate
 from models import DecoderOnlyTransformer
 from torch.utils.tensorboard import SummaryWriter
 
 epochs = 1
 lr = 1e-3
 train_batch = 96
-sample_size = 40000
+sample_size = 4000
 
 writer = SummaryWriter('runs')
-tokenizer = AutoTokenizer.from_pretrained(CONFIG['tokenizer'])
-CONFIG['vocab_size'] = tokenizer.vocab_size
+tokenizer = AutoTokenizer.from_pretrained('google-bert/bert-base-uncased')
+config = SimpleDecoderOnlyTransformerConfig(vocab_size=tokenizer.vocab_size)
 
 lines = load_lines('data/*.txt')
-tokenized_lines = tokenizer(lines[:], return_tensors='pt')
+tokenized_lines = tokenizer(lines[:30000], return_tensors='pt')
 dataset = DatasetForCasualLM(tokenized_lines, num=sample_size, config=CONFIG)
 dataloader = DataLoader(dataset, train_batch, shuffle=True)
 steps = len(dataset)/train_batch*epochs
 
-config_check()
-model = DecoderOnlyTransformer(CONFIG).to(CONFIG['device'])
+config_check(config)
+model = DecoderOnlyTransformer(config).to(config.device)
 optimizer = torch.optim.AdamW(model.parameters(), lr=lr)
 scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, steps)
 
 model.train()
 for epoch in range(epochs):
     for step, (src_input_ids, src_casual_mask, dst_input_ids) in enumerate(tqdm(dataloader)):
-        src_input_ids = src_input_ids.to(CONFIG['device'])
-        src_casual_mask = src_casual_mask.to(CONFIG['device'])
-        dst_input_ids = dst_input_ids.to(CONFIG['device'])
+        src_input_ids = src_input_ids.to(config.device)
+        src_casual_mask = src_casual_mask.to(config.device)
+        dst_input_ids = dst_input_ids.to(config.device)
 
-        logits, loss = model(src_input_ids, src_casual_mask, dst_input_ids)
+        outputs = model(src_input_ids, src_casual_mask, dst_input_ids)
+        logits, loss = outputs['logits'], outputs['loss']
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
@@ -52,5 +52,8 @@ for epoch in range(epochs):
 
     torch.save(model.state_dict(), 'ckpts/DecoderOnlyTransformer.pth')
 
-print('Training Finished!')
-print(random_generate(model, tokenizer))
+print(Colors.BLUE + 'Training Finished!' + Colors.RESET)
+
+idx = model.random_generate()
+generated_text = [''.join(tokenizer.decode(x)) for x in idx.tolist()]
+print(generated_text)

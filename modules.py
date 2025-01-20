@@ -7,13 +7,13 @@ class FFN(nn.Module):
     def __init__(self, config):
         super().__init__()
         self.ffn = nn.Sequential(
-            nn.Linear(in_features=config['d_model'], out_features=config['ffn_dim']),
+            nn.Linear(in_features=config.hidden_size, out_features=config.intermediate_size),
             nn.ReLU(),
-            nn.Linear(in_features=config['ffn_dim'], out_features=config['d_model']),
-            nn.Dropout(p=config['dropout']),
+            nn.Linear(in_features=config.intermediate_size, out_features=config.hidden_size),
+            nn.Dropout(p=config.dropout),
         )
         self.norm = RMSNorm(config)
-        self.dropout = nn.Dropout(config['dropout'])
+        self.dropout = nn.Dropout(config.dropout)
 
     def forward(self, x):
         x_ = x.clone()
@@ -26,8 +26,8 @@ class FFN(nn.Module):
 class RMSNorm(nn.Module):
     def __init__(self, config):
         super().__init__()
-        self.weight = nn.Parameter(torch.ones(config['d_model']))
-        self.eps = config['eps']
+        self.weight = nn.Parameter(torch.ones(config.hidden_size))
+        self.eps = config.eps
     
     def forward(self, x):
         rms = torch.sqrt(torch.mean(x**2, dim=-1, keepdim=True) + self.eps)
@@ -39,18 +39,18 @@ class RMSNorm(nn.Module):
 class MultiHeadAttention(nn.Module):
     def __init__(self, config):
         super().__init__()
-        assert config['d_model'] % config['num_heads'] == 0
-        self.d_k = config['d_model'] // config['num_heads']
-        self.num_heads = config['num_heads']
+        assert config.hidden_size % config.num_attention_heads == 0
+        self.d_k = config.hidden_size // config.num_attention_heads
+        self.num_heads = config.num_attention_heads
         self.softmax = nn.Softmax(dim=-1)
         self.Q_norm = RMSNorm(config)
         self.K_norm = RMSNorm(config)
         self.V_norm = RMSNorm(config)
-        self.Q_map = nn.Linear(config['d_model'], config['d_model'])
-        self.K_map = nn.Linear(config['d_model'], config['d_model'])
-        self.V_map = nn.Linear(config['d_model'], config['d_model'])
-        self.fc = nn.Linear(config['d_model'], config['d_model'])
-        self.dropout = nn.Dropout(config['dropout'])
+        self.Q_map = nn.Linear(config.hidden_size, config.hidden_size)
+        self.K_map = nn.Linear(config.hidden_size, config.hidden_size)
+        self.V_map = nn.Linear(config.hidden_size, config.hidden_size)
+        self.fc = nn.Linear(config.hidden_size, config.hidden_size)
+        self.dropout = nn.Dropout(config.dropout)
 
     def attention(self, q, k, v, mask):
         q = self.Q_norm(q)
@@ -66,9 +66,9 @@ class MultiHeadAttention(nn.Module):
         v = rearrange(v, 'b l (h k) -> b h l k', h = self.num_heads)
 
         if mask is not None:
-            score = self.softmax((q @ k + mask)/self.d_k**0.5) @ v
+            score = self.softmax((q @ k)/self.d_k**0.5 + mask) @ v
         else:
-            # print('Casual Mask is not used!')
+            # print('Causal Mask is not used!')
             score = self.softmax((q @ k)/self.d_k**0.5) @ v
 
         score = rearrange(score, 'b h l k -> b l (h k)')
@@ -78,7 +78,7 @@ class MultiHeadAttention(nn.Module):
 class MultiHeadAttentionWithMap(MultiHeadAttention):
     def __init__(self, config):
         super().__init__(config)
-        self.attention_weights = torch.randn([1, config['num_heads'], config['max_seq_length'], config['max_seq_length']])
+        self.attention_weights = torch.randn([1, config.num_attention_heads, config.max_seq_len, config.max_seq_len])
 
     def attention(self, q, k, v, mask = None):
         q = self.Q_norm(q)
@@ -153,10 +153,10 @@ class EncoderBlock(nn.Module):
 class Encoder(nn.Module):
     def __init__(self, config):
         super().__init__()
-        self.device = config['device']
-        self.d_model = config['d_model']
-        self.embed = nn.Embedding(config['vocab_size'], config['d_model'])
-        self.encoder_blocks = nn.ModuleList([EncoderBlock(config) for _ in range(config['encoder_depth'])])
+        self.device = config.device
+        self.d_model = config.hidden_size
+        self.embed = nn.Embedding(config.vocab_size, config.hidden_size)
+        self.encoder_blocks = nn.ModuleList([EncoderBlock(config) for _ in range(config.n_layers)])
     
     def forward(self, x, mask = None, embed = True):
         if embed:
@@ -187,8 +187,8 @@ class DecoderBlock(nn.Module):
         self.self_attention = MultiHeadSelfAttention(config)
         self.ffn = FFN(config)
     
-    def forward(self, dst, casual_mask = None):
-        dst = self.self_attention(dst, casual_mask)
+    def forward(self, dst, causal_mask = None):
+        dst = self.self_attention(dst, causal_mask)
         dst = self.ffn(dst)
         return dst
 
@@ -198,8 +198,8 @@ class DecoderBlockWithCrossAttention(DecoderBlock):
         super().__init__()
         self.cross_attention = MultiHeadCrossAttention(config)
     
-    def forward(self, src, dst, padding_mask = None, casual_mask = None):
-        dst = self.self_attention(dst, casual_mask)
+    def forward(self, src, dst, padding_mask = None, causal_mask = None):
+        dst = self.self_attention(dst, causal_mask)
         dst = self.cross_attention(src, dst, padding_mask)
         dst = self.ffn(dst)
         return dst
@@ -208,16 +208,16 @@ class DecoderBlockWithCrossAttention(DecoderBlock):
 class Decoder(nn.Module):
     def __init__(self, config):
         super().__init__()
-        self.device = config['device']
-        self.d_model = config['d_model']
-        self.embed = nn.Embedding(config['vocab_size'], config['d_model'])
-        self.decoder_blocks = nn.ModuleList([DecoderBlock(config) for _ in range(config['decoder_depth'])])
+        self.device = config.device
+        self.d_model = config.hidden_size
+        self.embed = nn.Embedding(config.vocab_size, config.hidden_size)
+        self.decoder_blocks = nn.ModuleList([DecoderBlock(config) for _ in range(config.n_layers)])
     
-    def forward(self, dst, casual_mask = None):
+    def forward(self, dst, causal_mask = None):
         dst = self.embed(dst)
         dst = self.position_encode(dst)
         for block in self.decoder_blocks:
-            dst = block(dst = dst, casual_mask = casual_mask)
+            dst = block(dst = dst, causal_mask = causal_mask)
         return dst
     
     @torch.no_grad()
@@ -236,11 +236,11 @@ class Decoder(nn.Module):
 class DecoderWithCrossAttention(Decoder):
     def __init__(self, config):
         super().__init__()
-        self.decoder_blocks = nn.ModuleList([DecoderBlockWithCrossAttention(config) for _ in range(config['decoder_depth'])])
+        self.decoder_blocks = nn.ModuleList([DecoderBlockWithCrossAttention(config) for _ in range(config['n_layers'])])
     
-    def forward(self, src, dst, padding_mask = None, casual_mask = None):
+    def forward(self, src, dst, padding_mask = None, causal_mask = None):
         dst = self.embed(dst)
         dst = self.position_encode(dst)
         for block in self.decoder_blocks:
-            dst = block(src, dst, padding_mask, casual_mask)
+            dst = block(src, dst, padding_mask, causal_mask)
         return dst

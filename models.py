@@ -1,54 +1,63 @@
 import torch
 import torch.nn as nn
 from torch.nn import functional as F
+from transformers import PreTrainedModel
+from transformers.modeling_outputs import CausalLMOutput
 
 from einops import rearrange
 from config import *
 from modules import *
 
-class Transformer(nn.Module):
-    def __init__(self, config):
-        super().__init__()
-        self.encoder = Encoder(config)
-        self.decoder = Decoder(config)
-        self.linear = nn.Linear(config['d_model'], config['vocab_size'])
-        print("Model Parameters:", f'{sum([m.numel() for m in self.parameters()]):,}')
-    
-    def forward(self, src, dst, padding_mask = None, casual_mask = None):
-        src = self.encoder(src, padding_mask)
-        decoded = self.decoder(src, dst, padding_mask, casual_mask)
-        logits = self.linear(decoded)
-        return logits
 
+class DecoderOnlyTransformer(PreTrainedModel):
+    config_class = SimpleDecoderOnlyTransformerConfig
 
-class DecoderOnlyTransformer(nn.Module):
     def __init__(self, config):
-        super().__init__()
+        super().__init__(config)
         self.config = config
-        self.vocab_size = config['vocab_size']
-        self.decoder = Decoder(config)
-        self.linear = nn.Linear(config['d_model'], config['vocab_size'])
+        self.vocab_size = self.config.vocab_size
+        self.decoder = Decoder(self.config)
+        self.output = nn.Linear(self.config.hidden_size, self.config.vocab_size)
         self.attention_map = False
         print("Model Parameters:", f'{sum([m.numel() for m in self.parameters()]):,}')
     
     def forward(self, dst_input_ids, casual_mask, target_input_ids = None):
-        decoded = self.decoder(dst = dst_input_ids, casual_mask = casual_mask)
-        logits = self.linear(decoded)
+        hidden_states = self.decoder(dst = dst_input_ids, casual_mask = casual_mask)
+        logits = self.output(hidden_states)
 
         if target_input_ids is not None:
             loss = F.cross_entropy(logits.view(-1, self.vocab_size), target_input_ids.view(-1))
-            return logits, loss
-
+            return CausalLMOutput(loss=loss, logits=logits)
         else:
-            return logits
+            return CausalLMOutput(logits=logits)
         
     def apply_attention_map(self):
         self.attention_map = True
         for block in self.decoder.decoder_blocks:
             if isinstance(block, DecoderBlock):
                 block.self_attention = MultiHeadSelfAttentionWithMap(self.config)
-                block.to(self.config['device'])
+                block.to(self.config.device)
+    
+    @torch.inference_mode
+    def generate(self, idx, max_new_tokens = 50, temperature = 1):
+        self.eval()
+        for length in range(idx.shape[1], max_new_tokens + idx.shape[1]):
+            casual_mask = torch.triu(torch.ones([length, length]), diagonal=1).unsqueeze(0).to(self.config.device)*(-1e9)
+            logits = self(idx[:, -self.config.max_seq_len :], casual_mask = casual_mask)
+            logits = torch.softmax(logits[:, -1, :] / temperature, dim=-1)
+            if temperature < 1e-3:
+                idx_next = torch.argmax(logits, dim=-1).unsqueeze(1)
+            else:
+                idx_next = torch.multinomial(logits, num_samples=1)
+            idx = torch.cat([idx, idx_next], dim=-1)
 
+        return idx
+
+    @torch.inference_mode
+    def random_generate(self, batch_size = 5, max_new_tokens = 50):
+        idx = torch.randint(0, self.config.vocab_size, (batch_size, 1)).long().to(self.config.device)
+        idx = self.generate(idx, max_new_tokens)
+        return idx
 
 class VIT(nn.Module):
     def __init__(self, vit_config):
