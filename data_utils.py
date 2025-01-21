@@ -6,33 +6,40 @@ import random
 import os
 
 class DatasetForCasualLM(Dataset):
-    def __init__(self, tokenized, num, config):
+    def __init__(self, tokenizer, num, config):
         self.num = int(num)
-        self.max_seq_len = config['max_seq_length']
-        self.tokenized = tokenized['input_ids'].squeeze()
-        self.total_seq_length = self.tokenized.shape[0]
-        if self.total_seq_length - config['max_seq_length'] < num:
-            raise RuntimeError(f'All data {self.total_seq_length} is too small for num!')
-        print(f'Total tokens in dataset: {self.total_seq_length}')
+        self.max_seq_len = config.max_seq_len
+        self.tokenizer = tokenizer
+        self.data = self.load_lines('data/*.txt')
+        self.total_seq_length = len(self.data)
+        if num > self.calcute_token_nums():
+            raise ValueError('num should be less than total token numbers')
     
     def __len__(self):
         return self.num
 
     def __getitem__(self, idx):
-        start = random.randint(0, self.total_seq_length - self.max_seq_len - idx -2)
-        src_input_ids = self.tokenized[start + idx: start + idx + self.max_seq_len]
-        dst_input_ids = self.tokenized[start + idx + 1: start + idx + self.max_seq_len + 1]
-        return {'input_ids': src_input_ids, 'labels': dst_input_ids}
-
-def load_lines(folder_path) -> str:
-    lines = ''
-    print("Reading Data...")
-    for file in tqdm(glob(folder_path)):
-        try:
-            with open(file, 'r') as f:
-                lines += f.read()
-        except:
-            print(f'Error while reading {file}')
-    if len(lines) == 0:
-        raise RuntimeError('Length of training data is 0!')
-    return lines
+        tokenized = self.tokenizer.encode(self.data[idx: idx + self.max_seq_len * 10])
+        src_input_ids = tokenized[0: self.max_seq_len]
+        dst_input_ids = tokenized[1: self.max_seq_len + 1]
+        if len(dst_input_ids) < self.max_seq_len:
+            dst_input_ids += [self.tokenizer.pad_token_id] * (self.max_seq_len - len(dst_input_ids))
+        return {'input_ids': torch.tensor(src_input_ids), 'labels': torch.tensor(dst_input_ids)}
+    
+    def load_lines(self, folder_path) -> str:
+        lines = ''
+        print("Reading Data...")
+        for file in tqdm(glob(folder_path)):
+            try:
+                with open(file, 'r') as f:
+                    lines += f.read()
+            except:
+                print(f'Error while reading {file}')
+        if len(lines) == 0:
+            raise RuntimeError('Length of training data is 0!')
+        return lines
+    
+    def calcute_token_nums(self):
+        split_words = self.data.split()
+        print(f'Total words: {len(split_words):,}')
+        return len(split_words)

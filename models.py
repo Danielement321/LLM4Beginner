@@ -22,14 +22,14 @@ class DecoderOnlyTransformer(PreTrainedModel):
         self.mask = torch.triu(torch.ones([config.max_seq_len, config.max_seq_len]), diagonal=1).unsqueeze(0) * (-1e9)
         print("Model Parameters:", f'{sum([m.numel() for m in self.parameters()]):,}')
     
-    def forward(self, dst_input_ids, target_input_ids = None):
-        batch_size, seq_len = dst_input_ids.shape[0], dst_input_ids.shape[1]
+    def forward(self, input_ids, labels = None):
+        batch_size, seq_len = input_ids.shape[0], input_ids.shape[1]
         mask = self.mask.repeat(batch_size, 1, 1, 1).to(self.config.device)
-        hidden_states = self.decoder(dst = dst_input_ids, causal_mask = mask[:, :, :seq_len, :seq_len])
+        hidden_states = self.decoder(dst = input_ids, causal_mask = mask[:, :, :seq_len, :seq_len])
         logits = self.output(hidden_states)
 
-        if target_input_ids is not None:
-            loss = F.cross_entropy(logits.view(-1, self.vocab_size), target_input_ids.view(-1))
+        if labels is not None:
+            loss = F.cross_entropy(logits.view(-1, self.vocab_size), labels.view(-1))
             return CausalLMOutput(loss=loss, logits=logits)
         else:
             return CausalLMOutput(logits=logits)

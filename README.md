@@ -20,9 +20,17 @@ The data folder contains files in text for training, e.g. an e-book in txt file.
 **Important:** If you do not have local cache for tokenizer, please uncomment `os.environ['TRANSFORMERS_OFFLINE'] = '1'`
 
 ## Train
-If you want to train the Decoder-Only Transformer, run the following command
+For the SimpleModel, run
+
+    python trainSimpleModel.py
+
+For the Decoder-Only Transformer, if you want to better understand how does the model accept data, run the following command
 
     python trainDecoder.py
+
+If you want to train the Decoder-Only Transformer with `Trainer` from transformer, run
+
+    python trainWithTrainer.py
 
 As for the VIT, run
 
@@ -37,3 +45,4 @@ A generation task is given in `Generate.ipynb`, the generation includes random g
 
 ## Attention Visualization
 An example for attention map visualization is in `AttentionMap.ipynb`. This note book first execute context generation task and then plot the attention score for specific layer and heads. Currently this notebook only supports the visualization of text transformer, and support of VIT will be included in the future.
+**Important:** The visualization only supports model without flash attention.

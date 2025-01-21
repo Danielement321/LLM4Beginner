@@ -6,8 +6,8 @@ from tqdm import tqdm
 import torch
 from torch.utils.data import DataLoader
 from transformers import AutoTokenizer
-from config import *
-from data_utils import *
+from config import SimpleDecoderOnlyTransformerConfig
+from data_utils import DatasetForCasualLM
 from utils import *
 from models import DecoderOnlyTransformer
 from torch.utils.tensorboard import SummaryWriter
@@ -15,20 +15,19 @@ from torch.utils.tensorboard import SummaryWriter
 epochs = 1
 lr = 8e-4
 train_batch = 64
-sample_size = 2500
+sample_size = 200000
 
 writer = SummaryWriter('runs')
 tokenizer = AutoTokenizer.from_pretrained('google-bert/bert-base-uncased')
-config = SimpleDecoderOnlyTransformerConfig(vocab_size=tokenizer.vocab_size)
+config = SimpleDecoderOnlyTransformerConfig(vocab_size=tokenizer.vocab_size, flash_attn=False)
 
-lines = load_lines('data/*.txt')
-tokenized_lines = tokenizer(lines[:1500000], return_tensors='pt')
-dataset = DatasetForCasualLM(tokenized_lines, num=sample_size, config=CONFIG)
+dataset = DatasetForCasualLM(tokenizer, num=sample_size, config=config)
 dataloader = DataLoader(dataset, train_batch, shuffle=True)
 steps = len(dataset)/train_batch*epochs
 
 config_check(config)
 model = DecoderOnlyTransformer(config).to(config.device)
+# model = DecoderOnlyTransformer.from_pretrained('ckpts/DecoderOnlyTransformer').to(config.device)
 optimizer = torch.optim.AdamW(model.parameters(), lr=lr)
 scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, steps)
 
