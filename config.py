@@ -27,6 +27,7 @@ class SimpleDecoderOnlyTransformerConfig(PretrainedConfig):
                 dropout = 0.1,
                 vocab_size = 999999,
                 eps = 1e-6,
+                flash_attn = False,
                 **kwargs):
         self.hidden_size = hidden_size
         self.num_attention_heads = num_attention_heads
@@ -37,6 +38,7 @@ class SimpleDecoderOnlyTransformerConfig(PretrainedConfig):
         self.vocab_size = vocab_size
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
         self.eps = eps
+        self.flash_attn = flash_attn
         super().__init__(**kwargs)
 
 VIT_CONFIG = {

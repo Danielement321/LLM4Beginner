@@ -19,10 +19,13 @@ class DecoderOnlyTransformer(PreTrainedModel):
         self.decoder = Decoder(self.config)
         self.output = nn.Linear(self.config.hidden_size, self.config.vocab_size)
         self.attention_map = False
+        self.mask = torch.triu(torch.ones([config.max_seq_len, config.max_seq_len]), diagonal=1).unsqueeze(0) * (-1e9)
         print("Model Parameters:", f'{sum([m.numel() for m in self.parameters()]):,}')
     
-    def forward(self, dst_input_ids, casual_mask, target_input_ids = None):
-        hidden_states = self.decoder(dst = dst_input_ids, casual_mask = casual_mask)
+    def forward(self, dst_input_ids, target_input_ids = None):
+        batch_size, seq_len = dst_input_ids.shape[0], dst_input_ids.shape[1]
+        mask = self.mask.repeat(batch_size, 1, 1, 1).to(self.config.device)
+        hidden_states = self.decoder(dst = dst_input_ids, causal_mask = mask[:, :, :seq_len, :seq_len])
         logits = self.output(hidden_states)
 
         if target_input_ids is not None:
@@ -42,8 +45,7 @@ class DecoderOnlyTransformer(PreTrainedModel):
     def generate(self, idx, max_new_tokens = 50, temperature = 1):
         self.eval()
         for length in range(idx.shape[1], max_new_tokens + idx.shape[1]):
-            casual_mask = torch.triu(torch.ones([length, length]), diagonal=1).unsqueeze(0).to(self.config.device)*(-1e9)
-            logits = self(idx[:, -self.config.max_seq_len :], casual_mask = casual_mask)
+            logits = self(idx[:, -self.config.max_seq_len :])['logits']
             logits = torch.softmax(logits[:, -1, :] / temperature, dim=-1)
             if temperature < 1e-3:
                 idx_next = torch.argmax(logits, dim=-1).unsqueeze(1)
@@ -113,7 +115,7 @@ class SimpleModel(nn.Module):
         self.out = nn.Linear(config['d_model'], config['vocab_size'])
         print("Model Parameters:", f'{sum([m.numel() for m in self.parameters()]):,}')
 
-    def forward(self, src, dst = None, casual_mask = None): # casual_mask is not used by this very simple model, we add casual_mask here to unify the function arguments for generation
+    def forward(self, src, dst = None, causal_mask = None): # causal_mask is not used by this very simple model, we add causal_mask here to unify the function arguments for generation
         x = self.embedding(src)
         x = self.linear(x)
         logits = self.out(x)

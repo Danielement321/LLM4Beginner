@@ -3,7 +3,7 @@ This is a simple repository for LLM by a student in AI, with the purpose of enha
 
 ## This repository contains
 1. A simple fully connected model for generation.
-2. A simple Decoder-Only Transformer for generation. A checkpoint can be found in [link](https://drive.google.com/file/d/1QCl3M-9j1RtiAbu8LE_p8rOWb2v2ttko/view?usp=sharing)
+2. A simple Decoder-Only Transformer for generation.
 3. Attention map visualization support for transformer-based models.
 4. A Vision Transformer (VIT) for image classification.
 

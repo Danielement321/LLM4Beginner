@@ -34,6 +34,8 @@ def vit_config_check():
 def plot_attention(model, layer = 0, batch_idx = 0):
     if not hasattr(model, 'attention_map') or not model.attention_map:
         raise RuntimeError('Current model does not support attention_map, please run `model.apply_attention_map()` first!')
+    if model.config.flash_attn:
+        raise NotImplementedError('Models with flash attention are not supported!')
     model.eval()
     atten = model.decoder.decoder_blocks[layer].self_attention.attention_weights[batch_idx].cpu().detach().numpy()
     num_heads = atten.shape[0]

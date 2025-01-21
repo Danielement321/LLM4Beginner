@@ -13,16 +13,16 @@ from models import DecoderOnlyTransformer
 from torch.utils.tensorboard import SummaryWriter
 
 epochs = 1
-lr = 1e-3
-train_batch = 96
-sample_size = 4000
+lr = 8e-4
+train_batch = 64
+sample_size = 2500
 
 writer = SummaryWriter('runs')
 tokenizer = AutoTokenizer.from_pretrained('google-bert/bert-base-uncased')
 config = SimpleDecoderOnlyTransformerConfig(vocab_size=tokenizer.vocab_size)
 
 lines = load_lines('data/*.txt')
-tokenized_lines = tokenizer(lines[:30000], return_tensors='pt')
+tokenized_lines = tokenizer(lines[:1500000], return_tensors='pt')
 dataset = DatasetForCasualLM(tokenized_lines, num=sample_size, config=CONFIG)
 dataloader = DataLoader(dataset, train_batch, shuffle=True)
 steps = len(dataset)/train_batch*epochs
@@ -34,12 +34,11 @@ scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, steps)
 
 model.train()
 for epoch in range(epochs):
-    for step, (src_input_ids, src_casual_mask, dst_input_ids) in enumerate(tqdm(dataloader)):
-        src_input_ids = src_input_ids.to(config.device)
-        src_casual_mask = src_casual_mask.to(config.device)
-        dst_input_ids = dst_input_ids.to(config.device)
+    for step, data in enumerate(tqdm(dataloader)):
+        src_input_ids = data['input_ids'].to(config.device)
+        dst_input_ids = data['labels'].to(config.device)
 
-        outputs = model(src_input_ids, src_casual_mask, dst_input_ids)
+        outputs = model(src_input_ids, dst_input_ids)
         logits, loss = outputs['logits'], outputs['loss']
         optimizer.zero_grad()
         loss.backward()

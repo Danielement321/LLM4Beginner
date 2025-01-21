@@ -6,19 +6,19 @@ from einops import rearrange
 class FFN(nn.Module):
     def __init__(self, config):
         super().__init__()
-        self.ffn = nn.Sequential(
-            nn.Linear(in_features=config.hidden_size, out_features=config.intermediate_size),
-            nn.ReLU(),
-            nn.Linear(in_features=config.intermediate_size, out_features=config.hidden_size),
-            nn.Dropout(p=config.dropout),
-        )
+        self.linear1 = nn.Linear(config.hidden_size, config.intermediate_size)
+        self.linear2 = nn.Linear(config.hidden_size, config.intermediate_size)
+        self.linear3 = nn.Linear(config.intermediate_size, config.hidden_size)
+        self.silu = nn.SiLU()
         self.norm = RMSNorm(config)
         self.dropout = nn.Dropout(config.dropout)
 
     def forward(self, x):
         x_ = x.clone()
         x = self.norm(x)
-        x = self.ffn(x)
+        gate = self.silu(self.linear1(x))
+        x = self.linear2(x) * gate
+        x = self.linear3(x)
         x = self.dropout(x)
         return x + x_
 
@@ -40,6 +40,7 @@ class MultiHeadAttention(nn.Module):
     def __init__(self, config):
         super().__init__()
         assert config.hidden_size % config.num_attention_heads == 0
+        self.config = config
         self.d_k = config.hidden_size // config.num_attention_heads
         self.num_heads = config.num_attention_heads
         self.softmax = nn.Softmax(dim=-1)
@@ -51,6 +52,7 @@ class MultiHeadAttention(nn.Module):
         self.V_map = nn.Linear(config.hidden_size, config.hidden_size)
         self.fc = nn.Linear(config.hidden_size, config.hidden_size)
         self.dropout = nn.Dropout(config.dropout)
+        self.flash_attn = config.flash_attn
 
     def attention(self, q, k, v, mask):
         q = self.Q_norm(q)
@@ -70,9 +72,27 @@ class MultiHeadAttention(nn.Module):
         else:
             # print('Causal Mask is not used!')
             score = self.softmax((q @ k)/self.d_k**0.5) @ v
+            
+        output = rearrange(score, 'b h l k -> b l (h k)')
+        return output
+    
+    def flash_attention(self, q, k, v):
+        q = self.Q_norm(q)
+        k = self.K_norm(k)
+        v = self.V_norm(v)
 
-        score = rearrange(score, 'b h l k -> b l (h k)')
-        return score
+        q = self.Q_map(q)
+        k = self.K_map(k)
+        v = self.V_map(v)
+
+        q = rearrange(q, 'b l (h k) -> b h l k', h = self.num_heads)
+        k = rearrange(k, 'b l (h k) -> b h l k', h = self.num_heads)
+        v = rearrange(v, 'b l (h k) -> b h l k', h = self.num_heads)
+
+        output = torch.nn.functional.scaled_dot_product_attention(q, k, v, is_causal=True, dropout_p=self.config.dropout)
+
+        output = rearrange(output, 'b h l k -> b l (h k)')
+        return output
 
 
 class MultiHeadAttentionWithMap(MultiHeadAttention):
@@ -93,7 +113,7 @@ class MultiHeadAttentionWithMap(MultiHeadAttention):
         k = rearrange(k, 'b l (h k) -> b h k l', h=self.num_heads)
         v = rearrange(v, 'b l (h k) -> b h l k', h=self.num_heads)
 
-        scores = (q @ k + mask) / self.d_k**0.5
+        scores = (q @ k) / self.d_k**0.5 + mask
 
         self.attention_weights = self.softmax(scores)
         score = self.attention_weights @ v
@@ -105,10 +125,14 @@ class MultiHeadAttentionWithMap(MultiHeadAttention):
 class MultiHeadSelfAttention(MultiHeadAttention):
     def __init__(self, config):
         super().__init__(config)
+        self.flash_attn = config.flash_attn
 
-    def forward(self, x, padding_mask):
+    def forward(self, x, mask):
         x_ = x.clone()
-        x = self.attention(q=x, k=x, v=x, mask=padding_mask)
+        if self.flash_attn:
+            x = self.flash_attention(q=x, k=x, v=x)
+        else:
+            x = self.attention(q=x, k=x, v=x, mask=mask)
         x = self.fc(x)
         x = self.dropout(x)
         return x + x_
@@ -118,9 +142,9 @@ class MultiHeadSelfAttentionWithMap(MultiHeadAttentionWithMap):
     def __init__(self, config):
         super().__init__(config)
 
-    def forward(self, x, padding_mask):
+    def forward(self, x, mask):
         x_ = x.clone()
-        x = self.attention(q=x, k=x, v=x, mask=padding_mask)
+        x = self.attention(q=x, k=x, v=x, mask=mask)
         x = self.fc(x)
         x = self.dropout(x)
         return x + x_
@@ -130,9 +154,9 @@ class MultiHeadCrossAttention(MultiHeadAttention):
     def __init__(self, config):
         super().__init__(config)
 
-    def forward(self, src, dst, padding_mask):
+    def forward(self, src, dst, mask):
         dst_ = dst.clone()
-        dst = self.attention(q=dst, k=src, v=src, mask=padding_mask)
+        dst = self.attention(q=dst, k=src, v=src, mask=mask)
         dst = self.fc(dst)
         dst = self.dropout(dst)
         return dst + dst_
@@ -236,7 +260,7 @@ class Decoder(nn.Module):
 class DecoderWithCrossAttention(Decoder):
     def __init__(self, config):
         super().__init__()
-        self.decoder_blocks = nn.ModuleList([DecoderBlockWithCrossAttention(config) for _ in range(config['n_layers'])])
+        self.decoder_blocks = nn.ModuleList([DecoderBlockWithCrossAttention(config) for _ in range(config.n)])
     
     def forward(self, src, dst, padding_mask = None, causal_mask = None):
         dst = self.embed(dst)
