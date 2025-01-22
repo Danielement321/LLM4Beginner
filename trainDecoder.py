@@ -21,7 +21,7 @@ writer = SummaryWriter('runs')
 tokenizer = AutoTokenizer.from_pretrained('google-bert/bert-base-uncased')
 config = SimpleDecoderOnlyTransformerConfig(vocab_size=tokenizer.vocab_size, flash_attn=False)
 
-dataset = DatasetForCasualLM(tokenizer, num=sample_size, config=config)
+dataset = DatasetForCasualLM(tokenizer, 'data/*.txt', num=sample_size, config=config)
 dataloader = DataLoader(dataset, train_batch, shuffle=True)
 steps = len(dataset)/train_batch*epochs
 

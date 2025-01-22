@@ -20,10 +20,8 @@ def config_check(config):
         print(Colors.RED + 'CUDA is not availabel! Using CPU as the main device.' + Colors.RESET)
     if config.vocab_size == 999999:
         print(Colors.RED + 'The vocab_size is not set according to the size of tokenizer, this might cause OOM!' + Colors.RESET)
-    if config.hidden_size % config.num_attention_heads != 0:
+    if hasattr(config, 'num_attention_heads') and config.hidden_size % config.num_attention_heads != 0:
         raise RuntimeError('d_model % num_heads must be 0!')
-    if GENERATE_CONFIG['temperature'] <=0 :
-        raise RuntimeError('temperature in GENERATION_CONFIG must > 0!')
 
 def vit_config_check():
     print(f'VIT CONFIG:{VIT_CONFIG}')

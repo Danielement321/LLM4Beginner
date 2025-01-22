@@ -20,11 +20,10 @@ test_loader = torch.utils.data.DataLoader(test_dataset, batch_size=eval_batch_si
 
 VIT_CONFIG['image_size'] = 32
 VIT_CONFIG['patch_size'] = 4
-config['num_heads'] = 8
-config['encoder_depth'] = 3
-config['d_model'] = 256
-config['ffn_dim'] = 512
-vit_config_check()
+CONFIG['num_heads'] = 8
+CONFIG['encoder_depth'] = 3
+CONFIG['d_model'] = 256
+CONFIG['ffn_dim'] = 512
 
 model = VITForClassification(VIT_CONFIG, num_classes=10).to(VIT_CONFIG['device'])
 optimizer = torch.optim.AdamW(model.parameters())

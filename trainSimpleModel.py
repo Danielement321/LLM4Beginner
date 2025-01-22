@@ -6,51 +6,51 @@ from tqdm import tqdm
 import torch
 from torch.utils.data import DataLoader
 from transformers import AutoTokenizer
-from config import *
-from data_utils import *
+from config import SimpleModelConfig
+from data_utils import DatasetForCasualLM
 from utils import *
-import matplotlib.pyplot as plt
-from generate_utils import random_generate
 from models import SimpleModel
+from torch.utils.tensorboard import SummaryWriter
 
 epochs = 1
-lr = 1e-3
-train_batch = 96
-sample_size = 2000
+lr = 8e-4
+train_batch = 64
+sample_size = 200000
 
-tokenizer = AutoTokenizer.from_pretrained('google-bert/bert-base-chinese')
-config['vocab_size'] = tokenizer.vocab_size
+writer = SummaryWriter('runs')
+tokenizer = AutoTokenizer.from_pretrained('google-bert/bert-base-uncased')
+config = SimpleModelConfig(vocab_size=tokenizer.vocab_size)
 
-lines = load_lines('data/*.txt')
-tokenized_lines = tokenizer(lines[:20000], return_tensors='pt')
-dataset = DatasetForCasualLM(tokenized_lines, num=sample_size, config=config)
+dataset = DatasetForCasualLM(tokenizer, 'data/*.txt', num=sample_size, config=config)
 dataloader = DataLoader(dataset, train_batch, shuffle=True)
+steps = len(dataset)/train_batch*epochs
 
-config_check()
-model = SimpleModel(config).to(config['device'])
-optimizer = torch.optim.Adam(model.parameters(), lr=lr)
-
-losses = []
+config_check(config)
+model = SimpleModel(config).to(config.device)
+optimizer = torch.optim.AdamW(model.parameters(), lr=lr)
+scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, steps)
 
 model.train()
 for epoch in range(epochs):
-    for src_input_ids, _, dst_input_ids in tqdm(dataloader):
-        src_input_ids = src_input_ids.to(config['device'])
-        dst_input_ids = dst_input_ids.to(config['device'])
+    for step, data in enumerate(tqdm(dataloader)):
+        src_input_ids = data['input_ids'].to(config.device)
+        dst_input_ids = data['labels'].to(config.device)
 
-        logits, loss = model(src_input_ids, dst_input_ids)
+        outputs = model(src_input_ids, dst_input_ids)
+        logits, loss = outputs['logits'], outputs['loss']
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
-        losses.append(loss.item())
+        scheduler.step()
+
+        tqdm.write(f'loss:{loss.item()}, lr:{scheduler.get_last_lr()[0]}')
+        writer.add_scalar('loss', loss.item(), (epoch + 1) * step)
+        writer.add_scalar('lr', scheduler.get_last_lr()[0], (epoch + 1) * step)
 
     torch.save(model.state_dict(), 'ckpts/SimpleModel.pth')
 
-plt.plot(losses)
-plt.title('Training Loss SimpleModel')
-plt.savefig('losses.png')
+print(Colors.BLUE + 'Training Finished!' + Colors.RESET)
 
-print('Training Finished!')
-
-idx = tokenizer('the government', return_tensors='pt')['input_ids'][:, 1: -1].to(self.config.device)
-print(random_generate(model, tokenizer))
+# idx = model.random_generate()
+# generated_text = [''.join(tokenizer.decode(x)) for x in idx.tolist()]
+# print(generated_text)
