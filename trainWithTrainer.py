@@ -8,10 +8,10 @@ from data_utils import DatasetForCasualLM
 from utils import *
 from models import DecoderOnlyTransformer
 
-sample_size = 10000000
+sample_size = 100000
 
 tokenizer = AutoTokenizer.from_pretrained('google-bert/bert-base-uncased')
-config = SimpleDecoderOnlyTransformerConfig(vocab_size=tokenizer.vocab_size, flash_attn=False)
+config = SimpleDecoderOnlyTransformerConfig(vocab_size=tokenizer.vocab_size, flash_attn=True)
 
 dataset = DatasetForCasualLM(tokenizer, 'data/*.txt', num=sample_size, config=config)
 data_collator = DefaultDataCollator()
@@ -19,7 +19,7 @@ data_collator = DefaultDataCollator()
 config_check(config)
 model = DecoderOnlyTransformer(config).to(config.device)
 
-args = TrainingArguments(output_dir='ckpts/DecoderOnlyTransforme',
+args = TrainingArguments(output_dir='ckpts/DecoderOnlyTransformer',
                          logging_dir='runs',
                          num_train_epochs=1, 
                          do_train=True, 

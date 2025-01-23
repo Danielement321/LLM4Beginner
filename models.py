@@ -37,10 +37,11 @@ class SimpleModel(PreTrainedModel):
         self.eval()
         for length in range(idx.shape[1], max_new_tokens + idx.shape[1]):
             logits = self(idx[:, -self.config.max_seq_len :])['logits']
-            logits = torch.softmax(logits[:, -1, :] / temperature, dim=-1)
-            if temperature < 1e-3:
+            logits = logits[:, -1, :]
+            if temperature < 1e-2:
                 idx_next = torch.argmax(logits, dim=-1).unsqueeze(1)
             else:
+                logits = torch.softmax(logits / temperature, dim=-1)
                 idx_next = torch.multinomial(logits, num_samples=1)
             idx = torch.cat([idx, idx_next], dim=-1)
 
@@ -79,21 +80,23 @@ class DecoderOnlyTransformer(PreTrainedModel):
         
     def apply_attention_map(self):
         self.attention_map = True
-        print(Colors.MAGENTA + '!! apply_attention_map must be called before load_state_dict !!' + Colors.RESET)
         for block in self.decoder.decoder_blocks:
             if isinstance(block, DecoderBlock):
-                block.self_attention = MultiHeadSelfAttentionWithMap(self.config)
-                block.to(self.config.device)
+                original_weights = block.self_attention.state_dict()
+                block.self_attention = MultiHeadSelfAttentionWithMap(self.config).to(self.config.device)
+                block.self_attention.load_state_dict(original_weights)
+        print(Colors.MAGENTA + 'Attention_map is now supported! This may cause unnecessary memory consumption if you are not conducting a visualization.' + Colors.RESET)
     
     @torch.inference_mode
     def generate(self, idx, max_new_tokens = 50, temperature = 1):
         self.eval()
         for length in range(idx.shape[1], max_new_tokens + idx.shape[1]):
             logits = self(idx[:, -self.config.max_seq_len :])['logits']
-            logits = torch.softmax(logits[:, -1, :] / temperature, dim=-1)
-            if temperature < 1e-3:
+            logits = logits[:, -1, :]
+            if temperature < 1e-2:
                 idx_next = torch.argmax(logits, dim=-1).unsqueeze(1)
             else:
+                logits = torch.softmax(logits / temperature, dim=-1)
                 idx_next = torch.multinomial(logits, num_samples=1)
             idx = torch.cat([idx, idx_next], dim=-1)
 
