@@ -3,7 +3,7 @@ import warnings
 from config import *
 from tqdm import tqdm
 import math
-import os
+import datasets
 
 class Colors:
     RED = '\033[1m\033[31m'
@@ -50,3 +50,8 @@ def plot_attention(model, layer = 0, batch_idx = 0):
     fig.suptitle(f'Attention Map For Layer{layer}')
     plt.tight_layout()
     plt.show()
+
+def download_dataset(dataset_path, output_path):
+    dataset = datasets.load_dataset(dataset_path, split='train')
+    dataset = dataset.to_json(output_path)
+    print('The dataset from hub has been saved as json files!')

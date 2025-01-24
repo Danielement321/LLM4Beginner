@@ -1,11 +1,11 @@
 import torch
 import torch.nn as nn
 from torch.nn import functional as F
-from transformers import PreTrainedModel
+from transformers import PreTrainedModel, AutoTokenizer
 from transformers.modeling_outputs import CausalLMOutput
 
 from einops import rearrange
-from utils import Colors
+from utils import *
 from config import *
 from modules import *
 
@@ -148,3 +148,29 @@ class VITForClassification(nn.Module):
             return logits, loss
         else:
             return logits
+
+def load_model(model_path, load_mode = 'trainer'):
+    if load_mode == 'trainer': # DecoderOnlyTransformer trained with trainWithTrainer.py
+        tokenizer = AutoTokenizer.from_pretrained(model_path)
+        model = DecoderOnlyTransformer.from_pretrained(model_path)
+        config_check(model.config)
+        return tokenizer, model
+    elif load_mode == 'custom_trainer': # DecoderOnlyTransformer trained with trainDecoder.py
+        tokenizer = AutoTokenizer.from_pretrained('google-bert/bert-base-uncased')
+        tokenizer.add_special_tokens({'bos_token': '<s>', 'eos_token': '<e>'})
+        config = SimpleDecoderOnlyTransformerConfig(vocab_size=tokenizer.vocab_size + 2, flash_attn=True)
+
+        config_check(config)
+        model = DecoderOnlyTransformer(config).to(config.device)
+        model.load_state_dict(torch.load(model_path, weights_only=True), strict=False)
+        return tokenizer, model
+    else: # The SimpleModel
+        tokenizer = AutoTokenizer.from_pretrained('google-bert/bert-base-uncased')
+        tokenizer.add_special_tokens({'bos_token': '<s>', 'eos_token': '<e>'})
+        config = SimpleModelConfig(vocab_size=tokenizer.vocab_size)
+
+        config_check(config)
+        model = SimpleModel(config).to(config.device)
+        model = SimpleModel.from_pretrained(model_path).to(config.device)
+        model.load_state_dict(torch.load(model_path, weights_only=True), strict=False)
+        return tokenizer, model

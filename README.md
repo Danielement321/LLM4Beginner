@@ -17,6 +17,7 @@ You should create three folders: data & ckpts for data storage and checkpoints s
     mkdir data ckpts runs
 
 The data folder contains files in text for training, e.g. an e-book in txt file.
+
 **IMPORTANT** If you do not have local cache for tokenizer, please uncomment `os.environ['TRANSFORMERS_OFFLINE'] = '1'`. If you encounter network problem, especially for those in China mainland, please uncomment `os.environ['HF_ENDPOINT'] = 'https://hf-mirror.com'`.
 
 ## Train
@@ -45,4 +46,13 @@ A generation task is given in `Generate.ipynb`, the generation includes random g
 
 ## Attention Visualization
 An example for attention map visualization is in `AttentionMap.ipynb`. This note book first execute context generation task and then plot the attention score for specific layer and heads. Currently this notebook only supports the visualization of text transformer, and support of VIT will be included in the future.
+
 **IMPORTANT** The visualization only supports model without flash attention.
+
+## Acknowledgement
+This project draws inspiration and borrows some code from the following repositories and blogs:
+- [wyf3/llm_related](https://github.com/wyf3/llm_related)
+- [jingyaogong/minimind](https://github.com/jingyaogong/minimind)
+- [（徒手搓LLM）逐行代码从0构造一个LLM——LlaMa篇](https://zhuanlan.zhihu.com/p/1674261485)
+
+We acknowledge for their outstanding and fruitful work!
