@@ -23,29 +23,29 @@ The data folder contains files in text for training, e.g. an e-book in txt file.
 ## Train
 For the SimpleModel, run
 
-    python trainSimpleModel.py
+    python SimpleModel/trainSimpleModel.py
 
 For the Decoder-Only Transformer, if you want to better understand how does the model accept data, run the following command
 
-    python trainDecoder.py
+    python LLM/trainDecoder.py
 
 If you want to train the Decoder-Only Transformer with `Trainer` from transformer, run
 
-    python trainWithTrainer.py
+    python LLM/trainWithTrainer.py
 
 As for the VIT, run
 
-    python trainVIT.py
+    python VIT/trainVIT.py
 
 This will automatically download CIFAR-10 dataset for training. You can change it to any dataset easily.
 
 Please note that you should first modify `config.py` according to your device.
 
 ## Generate
-A generation task is given in `Generate.ipynb`, the generation includes random generation (start with random tokens) and context generation (start with given context). Before generating, please make sure that your trained weights is ready. Enjoy!
+A generation task is given in `LLM/Generate.ipynb`, the generation includes random generation (start with random tokens) and context generation (start with given context). Before generating, please make sure that your trained weights is ready. Enjoy!
 
 ## Attention Visualization
-An example for attention map visualization is in `AttentionMap.ipynb`. This note book first execute context generation task and then plot the attention score for specific layer and heads. Currently this notebook only supports the visualization of text transformer, and support of VIT will be included in the future.
+An example for attention map visualization is in `LLM/AttentionMap.ipynb`. This note book first execute context generation task and then plot the attention score for specific layer and heads. Currently this notebook only supports the visualization of text transformer, and support of VIT will be included in the future.
 
 **IMPORTANT** The visualization only supports model without flash attention.
 
