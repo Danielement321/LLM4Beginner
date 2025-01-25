@@ -74,7 +74,6 @@ class MultiHeadAttention(nn.Module):
         self.V_map = nn.Linear(config.hidden_size, config.hidden_size)
         self.fc = nn.Linear(config.hidden_size, config.hidden_size)
         self.dropout = nn.Dropout(config.dropout)
-        self.flash_attn = config.flash_attn
         self.attention_weights = None
     
     def _process_qkv(self, q, k, v):
@@ -116,43 +115,13 @@ class MultiHeadAttention(nn.Module):
     def attention_with_weights(self, q, k, v, mask):
         q, k, v = self._process_qkv(q, k, v)
 
-        scores = (q @ k) / self.d_k**0.5 + mask
+        scores = (q @ k.transpose(-1, -2)) / self.d_k**0.5 + mask
 
         self.attention_weights = self.softmax(scores)
         score = self.attention_weights @ v
             
         output = rearrange(score, 'b h l k -> b l (h k)')
         return output
-
-
-class MultiHeadAttentionWithMap(MultiHeadAttention):
-    def __init__(self, config):
-        super().__init__(config)
-        self.attention_weights = torch.randn([1, config.num_attention_heads, config.max_seq_len, config.max_seq_len])
-
-    def attention(self, q, k, v, mask = None):
-        q = self.Q_norm(q)
-        k = self.K_norm(k)
-        v = self.V_norm(v)
-
-        q = self.Q_map(q)
-        k = self.K_map(k)
-        v = self.V_map(v)
-
-        q = rearrange(q, 'b l (h k) -> b l h k', h = self.num_heads)
-        k = rearrange(k, 'b l (h k) -> b l h k', h = self.num_heads)
-        v = rearrange(v, 'b l (h k) -> b h l k', h = self.num_heads)
-        q, k = self.RoPE.embed(q, k)
-        q = rearrange(q, 'b l h k -> b h l k')
-        k = rearrange(k, 'b l h k -> b h k l')
-
-        scores = (q @ k) / self.d_k**0.5 + mask
-
-        self.attention_weights = self.softmax(scores)
-        score = self.attention_weights @ v
-
-        score = rearrange(score, 'b h l k -> b l (h k)')
-        return score
 
 
 class MultiHeadSelfAttention(MultiHeadAttention):
@@ -171,13 +140,13 @@ class MultiHeadSelfAttention(MultiHeadAttention):
         return x + x_
 
 
-class MultiHeadSelfAttentionWithMap(MultiHeadAttentionWithMap):
+class MultiHeadSelfAttentionWithMap(MultiHeadAttention):
     def __init__(self, config):
         super().__init__(config)
 
     def forward(self, x, mask):
         x_ = x.clone()
-        x = self.attention(q=x, k=x, v=x, mask=mask)
+        x = self.attention_with_weights(q=x, k=x, v=x, mask=mask)
         x = self.fc(x)
         x = self.dropout(x)
         return x + x_
