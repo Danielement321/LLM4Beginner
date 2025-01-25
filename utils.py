@@ -1,7 +1,5 @@
 import matplotlib.pyplot as plt
-import warnings
 from config import *
-from tqdm import tqdm
 import math
 import datasets
 
@@ -21,7 +19,9 @@ def config_check(config):
     if config.vocab_size == 999999:
         print(Colors.RED + 'The vocab_size is not set according to the size of tokenizer, this might cause OOM!' + Colors.RESET)
     if hasattr(config, 'num_attention_heads') and config.hidden_size % config.num_attention_heads != 0:
-        raise RuntimeError('d_model % num_heads must be 0!')
+        raise RuntimeError('hidden_size % num_attention_heads must be 0!')
+    if config.hidden_size % 2 != 0:
+        raise ValueError('hidden_size must be even!')
 
 def vit_config_check():
     print(f'VIT CONFIG:{VIT_CONFIG}')
@@ -32,8 +32,6 @@ def vit_config_check():
 def plot_attention(model, layer = 0, batch_idx = 0):
     if not hasattr(model, 'attention_map') or not model.attention_map:
         raise RuntimeError('Current model does not support attention_map, please run `model.apply_attention_map()` first!')
-    if model.config.flash_attn:
-        raise NotImplementedError('Models with flash attention are not supported!')
     model.eval()
     atten = model.decoder.decoder_blocks[layer].self_attention.attention_weights[batch_idx].cpu().detach().numpy()
     num_heads = atten.shape[0]

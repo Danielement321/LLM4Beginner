@@ -36,6 +36,27 @@ class RMSNorm(nn.Module):
         return x
 
 
+# Complex64 can not be saved in safetensor, so this class will not inherit from nn.Module
+class RotaryEmbedding():
+    def __init__(self, config):
+        super().__init__()
+        assert config.hidden_size % 2 == 0
+        head_size = config.hidden_size // config.num_attention_heads
+        freqs = 1 / (10000 ** (torch.arange(0, head_size, 2) / head_size))
+        t = torch.arange(0, config.max_seq_len).float()
+        freqs = torch.outer(t, freqs) # Equivalent to t.unsqueeze(1) @ freqs.unsqueeze(0), but maybe faster
+        pos_cis = torch.polar(torch.ones_like(freqs), freqs).to(config.device)
+        self.pos_cis = rearrange(pos_cis, f'l d -> 1 l 1 d') # [max_seq_len, hidden_size//2] -> [1 max_seq_len 1 hidden_size//2]
+    
+    def embed(self, q, k):
+        seq_len = q.shape[1]
+        q_ = torch.view_as_complex(q.reshape(*q.shape[:-1], -1, 2).float()) # [b l h k] -> [b l h k//2 2] -> [b l h k//2]
+        k_ = torch.view_as_complex(k.reshape(*k.shape[:-1], -1, 2).float()) # [b l h k] -> [b l h k//2 2] -> [b l h k//2]
+        q_out = torch.view_as_real(q_ * self.pos_cis[:, :seq_len, :, :]).flatten(3) # [b l h k//2] -> [b l h k//2 2] -> [b l h k]
+        k_out = torch.view_as_real(k_ * self.pos_cis[:, :seq_len, :, :]).flatten(3) # [b l h k//2] -> [b l h k//2 2] -> [b l h k]
+        return q_out, k_out
+
+
 class MultiHeadAttention(nn.Module):
     def __init__(self, config):
         super().__init__()
@@ -44,6 +65,7 @@ class MultiHeadAttention(nn.Module):
         self.d_k = config.hidden_size // config.num_attention_heads
         self.num_heads = config.num_attention_heads
         self.softmax = nn.Softmax(dim=-1)
+        self.RoPE = RotaryEmbedding(config)
         self.Q_norm = RMSNorm(config)
         self.K_norm = RMSNorm(config)
         self.V_norm = RMSNorm(config)
@@ -53,8 +75,9 @@ class MultiHeadAttention(nn.Module):
         self.fc = nn.Linear(config.hidden_size, config.hidden_size)
         self.dropout = nn.Dropout(config.dropout)
         self.flash_attn = config.flash_attn
-
-    def attention(self, q, k, v, mask):
+        self.attention_weights = None
+    
+    def _process_qkv(self, q, k, v):
         q = self.Q_norm(q)
         k = self.K_norm(k)
         v = self.V_norm(v)
@@ -63,35 +86,42 @@ class MultiHeadAttention(nn.Module):
         k = self.K_map(k)
         v = self.V_map(v)
 
-        q = rearrange(q, 'b l (h k) -> b h l k', h = self.num_heads)
-        k = rearrange(k, 'b l (h k) -> b h k l', h = self.num_heads)
+        q = rearrange(q, 'b l (h k) -> b l h k', h = self.num_heads)
+        k = rearrange(k, 'b l (h k) -> b l h k', h = self.num_heads)
         v = rearrange(v, 'b l (h k) -> b h l k', h = self.num_heads)
+        q, k = self.RoPE.embed(q, k)
+        q = rearrange(q, 'b l h k -> b h l k')
+        k = rearrange(k, 'b l h k -> b h l k')
+        return q, k, v
+    
+    def attention(self, q, k, v, mask):
+        q, k, v = self._process_qkv(q, k, v)
 
         if mask is not None:
-            score = self.softmax((q @ k)/self.d_k**0.5 + mask) @ v
+            score = self.softmax((q @ k.transpose(-1, -2))/self.d_k**0.5 + mask) @ v
         else:
-            # print('Causal Mask is not used!')
-            score = self.softmax((q @ k)/self.d_k**0.5) @ v
+            score = self.softmax((q @ k.transpose(-1, -2))/self.d_k**0.5) @ v
             
         output = rearrange(score, 'b h l k -> b l (h k)')
         return output
     
-    def flash_attention(self, q, k, v):
-        q = self.Q_norm(q)
-        k = self.K_norm(k)
-        v = self.V_norm(v)
-
-        q = self.Q_map(q)
-        k = self.K_map(k)
-        v = self.V_map(v)
-
-        q = rearrange(q, 'b l (h k) -> b h l k', h = self.num_heads)
-        k = rearrange(k, 'b l (h k) -> b h l k', h = self.num_heads)
-        v = rearrange(v, 'b l (h k) -> b h l k', h = self.num_heads)
+    def flash_attention(self, q, k, v, mask=None):
+        q, k, v = self._process_qkv(q, k, v)
 
         output = torch.nn.functional.scaled_dot_product_attention(q, k, v, is_causal=True, dropout_p=self.config.dropout)
 
         output = rearrange(output, 'b h l k -> b l (h k)')
+        return output
+    
+    def attention_with_weights(self, q, k, v, mask):
+        q, k, v = self._process_qkv(q, k, v)
+
+        scores = (q @ k) / self.d_k**0.5 + mask
+
+        self.attention_weights = self.softmax(scores)
+        score = self.attention_weights @ v
+            
+        output = rearrange(score, 'b h l k -> b l (h k)')
         return output
 
 
@@ -109,9 +139,12 @@ class MultiHeadAttentionWithMap(MultiHeadAttention):
         k = self.K_map(k)
         v = self.V_map(v)
 
-        q = rearrange(q, 'b l (h k) -> b h l k', h=self.num_heads)
-        k = rearrange(k, 'b l (h k) -> b h k l', h=self.num_heads)
-        v = rearrange(v, 'b l (h k) -> b h l k', h=self.num_heads)
+        q = rearrange(q, 'b l (h k) -> b l h k', h = self.num_heads)
+        k = rearrange(k, 'b l (h k) -> b l h k', h = self.num_heads)
+        v = rearrange(v, 'b l (h k) -> b h l k', h = self.num_heads)
+        q, k = self.RoPE.embed(q, k)
+        q = rearrange(q, 'b l h k -> b h l k')
+        k = rearrange(k, 'b l h k -> b h k l')
 
         scores = (q @ k) / self.d_k**0.5 + mask
 
@@ -239,7 +272,7 @@ class Decoder(nn.Module):
     
     def forward(self, dst, causal_mask = None):
         dst = self.embed(dst)
-        dst = self.position_encode(dst)
+        # dst = self.position_encode(dst) # Sinusoidal is deprecated since RoPE is applied
         for block in self.decoder_blocks:
             dst = block(dst = dst, causal_mask = causal_mask)
         return dst

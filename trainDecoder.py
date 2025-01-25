@@ -19,7 +19,8 @@ sample_size = 200000
 
 writer = SummaryWriter('runs')
 tokenizer = AutoTokenizer.from_pretrained('google-bert/bert-base-uncased')
-config = SimpleDecoderOnlyTransformerConfig(vocab_size=tokenizer.vocab_size, flash_attn=False)
+tokenizer.add_special_tokens({'bos_token': '<s>', 'eos_token': '<e>'})
+config = SimpleDecoderOnlyTransformerConfig(vocab_size=tokenizer.vocab_size + 2, flash_attn=False)
 
 dataset = DatasetForCasualLM(tokenizer, 'data/*.txt', num=sample_size, config=config)
 dataloader = DataLoader(dataset, train_batch, shuffle=True)
@@ -48,7 +49,9 @@ for epoch in range(epochs):
         writer.add_scalar('loss', loss.item(), (epoch + 1) * step)
         writer.add_scalar('lr', scheduler.get_last_lr()[0], (epoch + 1) * step)
 
-    torch.save(model.state_dict(), 'ckpts/DecoderOnlyTransformer.pth')
+    torch.save({'model_state_dict': model.state_dict(),
+                'config': model.config},
+                'ckpts/DecoderOnlyTransformer.pth')
 
 print(Colors.BLUE + 'Training Finished!' + Colors.RESET)
 

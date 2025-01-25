@@ -47,7 +47,9 @@ for epoch in range(epochs):
         writer.add_scalar('loss', loss.item(), (epoch + 1) * step)
         writer.add_scalar('lr', scheduler.get_last_lr()[0], (epoch + 1) * step)
 
-    torch.save(model.state_dict(), 'ckpts/SimpleModel.pth')
+    torch.save({'model_state_dict': model.state_dict(),
+                'config': model.config},
+                'ckpts/SimpleModel.pth')
 
 print(Colors.BLUE + 'Training Finished!' + Colors.RESET)
 

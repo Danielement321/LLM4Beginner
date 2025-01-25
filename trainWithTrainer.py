@@ -11,7 +11,8 @@ from models import DecoderOnlyTransformer
 sample_size = 100000
 
 tokenizer = AutoTokenizer.from_pretrained('google-bert/bert-base-uncased')
-config = SimpleDecoderOnlyTransformerConfig(vocab_size=tokenizer.vocab_size, flash_attn=True)
+tokenizer.add_special_tokens({'bos_token': '<s>', 'eos_token': '<e>'})
+config = SimpleDecoderOnlyTransformerConfig(vocab_size=tokenizer.vocab_size + 2, flash_attn=True)
 
 dataset = DatasetForCasualLM(tokenizer, 'data/*.txt', num=sample_size, config=config)
 data_collator = DefaultDataCollator()

@@ -154,23 +154,22 @@ def load_model(model_path, load_mode = 'trainer'):
         tokenizer = AutoTokenizer.from_pretrained(model_path)
         model = DecoderOnlyTransformer.from_pretrained(model_path)
         config_check(model.config)
-        return tokenizer, model
+        return tokenizer, model.to(model.config.device)
     elif load_mode == 'custom_trainer': # DecoderOnlyTransformer trained with trainDecoder.py
         tokenizer = AutoTokenizer.from_pretrained('google-bert/bert-base-uncased')
         tokenizer.add_special_tokens({'bos_token': '<s>', 'eos_token': '<e>'})
-        config = SimpleDecoderOnlyTransformerConfig(vocab_size=tokenizer.vocab_size + 2, flash_attn=True)
 
+        config = torch.load(model_path, weights_only=False)['config']
         config_check(config)
         model = DecoderOnlyTransformer(config).to(config.device)
-        model.load_state_dict(torch.load(model_path, weights_only=True), strict=False)
+        model.load_state_dict(torch.load(model_path, weights_only=False), strict=False)
         return tokenizer, model
     else: # The SimpleModel
         tokenizer = AutoTokenizer.from_pretrained('google-bert/bert-base-uncased')
         tokenizer.add_special_tokens({'bos_token': '<s>', 'eos_token': '<e>'})
-        config = SimpleModelConfig(vocab_size=tokenizer.vocab_size)
-
+        
+        config = torch.load(model_path, weights_only=False)['config']
         config_check(config)
         model = SimpleModel(config).to(config.device)
-        model = SimpleModel.from_pretrained(model_path).to(config.device)
-        model.load_state_dict(torch.load(model_path, weights_only=True), strict=False)
+        model.load_state_dict(torch.load(model_path, weights_only=False), strict=False)
         return tokenizer, model
