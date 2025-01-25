@@ -18,9 +18,8 @@ train_batch = 64
 sample_size = 200000
 
 writer = SummaryWriter('runs')
-tokenizer = AutoTokenizer.from_pretrained('google-bert/bert-base-uncased')
-tokenizer.add_special_tokens({'bos_token': '<s>', 'eos_token': '<e>'})
-config = SimpleDecoderOnlyTransformerConfig(vocab_size=tokenizer.vocab_size + 2, flash_attn=False)
+tokenizer = AutoTokenizer.from_pretrained('mistralai/Mistral-7B-Instruct-v0.3')
+config = SimpleDecoderOnlyTransformerConfig(vocab_size=tokenizer.vocab_size)
 
 dataset = DatasetForCasualLM(tokenizer, 'data/*.txt', num=sample_size, config=config)
 dataloader = DataLoader(dataset, train_batch, shuffle=True)

@@ -60,12 +60,12 @@ class PreTrainDataset(Dataset):
 
     def __getitem__(self, idx):
         tokenized = self.tokenizer.encode(self.data[idx]['text'])
-        tokenized = tokenized[1:] # Remove the [cls] token if you are using BERT tokenizer
-        tokenized = [self.tokenizer.bos_token_id] + tokenized + [self.tokenizer.eos_token_id]
+        # tokenized = tokenized[1:] # Remove the [cls] token if you are using BERT tokenizer
+        tokenized = tokenized + [self.tokenizer.eos_token_id]
         src_input_ids = tokenized[:-1]
         dst_input_ids = tokenized[1:]
-        src_input_ids = src_input_ids + [self.tokenizer.pad_token_id] * self.max_seq_len
-        dst_input_ids = dst_input_ids + [self.tokenizer.pad_token_id] * self.max_seq_len
+        src_input_ids = src_input_ids + [0] * self.max_seq_len
+        dst_input_ids = dst_input_ids + [0] * self.max_seq_len
         src_input_ids = src_input_ids[:self.max_seq_len]
         dst_input_ids = dst_input_ids[:self.max_seq_len]
         return {'input_ids': torch.tensor(src_input_ids), 'labels': torch.tensor(dst_input_ids)}
@@ -83,25 +83,3 @@ class PreTrainDataset(Dataset):
             raise RuntimeError('Length of training data is 0!')
         return lines
 
-# class PreTrainDataset(IterableDataset):
-#     def __init__(self, tokenizer, file_path, num, config):
-#         self.tokenizer = tokenizer
-#         self.file_path = file_path
-#         self.max_seq_len = config.max_seq_len
-#         self.num = int(num)
-        
-#     def __iter__(self):
-#         return self.get_data()
-    
-#     def __len__(self):
-#         return self.num
-    
-#     def get_data(self):
-#         with open(self.file_path, 'r') as f:
-#             for line in f:
-#                 data = self.tokenizer.bos_token + json.loads(line)['text'] + self.tokenizer.eos_token
-#                 tokenized = self.tokenizer.encode(data) + [0] * self.max_seq_len
-#                 src_input_ids = tokenized[0:self.max_seq_len]
-#                 dst_input_ids = tokenized[1:self.max_seq_len + 1]
-#                 yield {'input_ids': torch.tensor(src_input_ids), 'labels': torch.tensor(dst_input_ids)}
-                

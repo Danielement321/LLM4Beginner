@@ -18,7 +18,7 @@ train_batch = 64
 sample_size = 200000
 
 writer = SummaryWriter('runs')
-tokenizer = AutoTokenizer.from_pretrained('google-bert/bert-base-uncased')
+tokenizer = AutoTokenizer.from_pretrained('mistralai/Mistral-7B-Instruct-v0.3')
 config = SimpleModelConfig(vocab_size=tokenizer.vocab_size)
 
 dataset = DatasetForCasualLM(tokenizer, 'data/*.txt', num=sample_size, config=config)

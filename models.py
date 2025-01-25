@@ -156,8 +156,7 @@ def load_model(model_path, load_mode = 'trainer'):
         config_check(model.config)
         return tokenizer, model.to(model.config.device)
     elif load_mode == 'custom_trainer': # DecoderOnlyTransformer trained with trainDecoder.py
-        tokenizer = AutoTokenizer.from_pretrained('google-bert/bert-base-uncased')
-        tokenizer.add_special_tokens({'bos_token': '<s>', 'eos_token': '<e>'})
+        tokenizer = AutoTokenizer.from_pretrained('mistralai/Mistral-7B-Instruct-v0.3')
 
         config = torch.load(model_path, weights_only=False)['config']
         config_check(config)
@@ -165,8 +164,7 @@ def load_model(model_path, load_mode = 'trainer'):
         model.load_state_dict(torch.load(model_path, weights_only=False), strict=False)
         return tokenizer, model
     else: # The SimpleModel
-        tokenizer = AutoTokenizer.from_pretrained('google-bert/bert-base-uncased')
-        tokenizer.add_special_tokens({'bos_token': '<s>', 'eos_token': '<e>'})
+        tokenizer = AutoTokenizer.from_pretrained('mistralai/Mistral-7B-Instruct-v0.3')
         
         config = torch.load(model_path, weights_only=False)['config']
         config_check(config)

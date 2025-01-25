@@ -1,6 +1,6 @@
 import os
-# os.environ['HF_ENDPOINT'] = 'https://hf-mirror.com'
-os.environ['TRANSFORMERS_OFFLINE'] = '1'
+os.environ['HF_ENDPOINT'] = 'https://hf-mirror.com'
+# os.environ['TRANSFORMERS_OFFLINE'] = '1'
 
 from transformers import AutoTokenizer, DefaultDataCollator, TrainingArguments, Trainer
 from config import SimpleDecoderOnlyTransformerConfig
@@ -10,9 +10,8 @@ from models import DecoderOnlyTransformer
 
 sample_size = 100000
 
-tokenizer = AutoTokenizer.from_pretrained('google-bert/bert-base-uncased')
-tokenizer.add_special_tokens({'bos_token': '<s>', 'eos_token': '<e>'})
-config = SimpleDecoderOnlyTransformerConfig(vocab_size=tokenizer.vocab_size + 2, flash_attn=True)
+tokenizer = AutoTokenizer.from_pretrained('mistralai/Mistral-7B-Instruct-v0.3')
+config = SimpleDecoderOnlyTransformerConfig(vocab_size=tokenizer.vocab_size, flash_attn=True)
 
 dataset = DatasetForCasualLM(tokenizer, 'data/*.txt', num=sample_size, config=config)
 data_collator = DefaultDataCollator()
