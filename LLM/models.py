@@ -59,12 +59,6 @@ class DecoderOnlyTransformer(PreTrainedModel):
 
         return idx
 
-    @torch.inference_mode
-    def random_generate(self, batch_size = 5, max_new_tokens = 50):
-        idx = torch.randint(0, self.config.vocab_size, (batch_size, 1)).long().to(self.config.device)
-        idx = self.generate(idx, max_new_tokens)
-        return idx
-
 
 def load_model(model_path: str):
     try:
