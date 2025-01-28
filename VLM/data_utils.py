@@ -12,7 +12,7 @@ class VLMDataset(Dataset):
         self.config = config
         self.tokenizer = tokenizer
         self.processor = processor
-        self.num_image_tokens = 197 # TODO This should be changed accordingly
+        self.num_image_tokens = 196 # TODO This should be changed accordingly
         self.data = self._load_data(data_path, max_num)
         self.num = int(max_num) if max_num is not None else len(self.data)
         self._validate_data()

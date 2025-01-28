@@ -19,7 +19,7 @@ class SimpleVLMForConditionalGeneration(PreTrainedModel, GenerationMixin):
         
     def forward(self, input_ids, pixel_values = None, labels = None, attention_mask = None):
         text_embeds = self.llm.get_input_embeddings()(input_ids)
-        image_features = self.vision_tower.vision_model(pixel_values).last_hidden_state
+        image_features = self.vision_tower.vision_model(pixel_values).last_hidden_state[:, 1:, :]
         image_embeds = self.projector(image_features).to(text_embeds.dtype)
         inputs_embeds = self._merge_input_ids_with_image_features(image_embeds, text_embeds, input_ids)
         llm_outputs = self.llm(inputs_embeds = inputs_embeds, attention_mask = attention_mask)
