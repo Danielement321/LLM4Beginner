@@ -15,7 +15,7 @@ processor = AutoProcessor.from_pretrained(config.vision_tower_path)
 tokenizer.add_tokens(['<|image|>'])
 config.image_pad_token_id = tokenizer.encode(config.image_pad_token)[0]
 
-dataset = VLMDataset(tokenizer, processor, 'data/VLMData/*.json', config)
+dataset = VLMDataset(tokenizer, processor, 'data/VLMData/PreTrainData/chat.json', config)
 data_collator = VLMPaddingCollator(tokenizer)
 
 config_check(config)

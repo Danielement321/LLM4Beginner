@@ -4,6 +4,7 @@ from tqdm import tqdm
 from PIL import Image
 from torch.utils.data import Dataset
 from config import SimpleVLMConfig
+from utils import *
 
 class VLMDataset(Dataset):
     def __init__(self, tokenizer, processor, data_path, config: SimpleVLMConfig, max_num = None):
@@ -14,6 +15,7 @@ class VLMDataset(Dataset):
         self.num_image_tokens = 197 # TODO This should be changed accordingly
         self.data = self._load_data(data_path, max_num)
         self.num = int(max_num) if max_num is not None else len(self.data)
+        self._validate_data()
         if self.num > len(self.data):
             raise ValueError('num should be less than total data numbers')
         print(f'Total data lines:{self.num:,}')
@@ -32,13 +34,32 @@ class VLMDataset(Dataset):
             raise RuntimeError('Length of training data is 0!')
         return lines
     
+    def _validate_data(self):
+        for sample in self.data:
+            image_path = sample['image']
+            try:
+                Image.open(image_path)
+            except:
+                self.data.remove(sample)
+                self.num -= 1
+                print(Colors.RED + f'Error in file {image_path}' + Colors.RESET)
+    
+    def _convert_keys(self, conversations): # Convert the keys of LLaVA Visual Instruct CC3M Pretrain 595K
+        messages = []
+        for conv in conversations:
+            role = "user" if conv["from"] == "human" else "assistant"
+            content = conv["value"]
+            messages.append({"role": role, "content": content})
+        return messages
+    
     def __len__(self):
         return self.num
     
     def __getitem__(self, index):
         sample = self.data[index]
-        messages = sample['messages']
-        image_path = sample['images']
+        conversations = sample['conversations']
+        image_path = sample['image']
+        messages = self._convert_keys(conversations)
         formatted_messages = self.tokenizer.apply_chat_template(messages, tokenize = False).replace('<image>', self.config.image_pad_token * self.num_image_tokens)
         # print(formatted_messages)
         tokenized = self.tokenizer(formatted_messages)
@@ -46,9 +67,7 @@ class VLMDataset(Dataset):
         attention_mask = tokenized['attention_mask']
         input_ids = tokenized_input_ids[:-1]
         labels = tokenized_input_ids[1:]
-        # images = [Image.open(i) for i in image_path] # TODO support multiple images
-        # pixel_values = self.processor(images = images, return_tensors = 'pt')['pixel_values']
-        pixel_values = self.processor(images = Image.open(image_path[0]).convert('RGB'), return_tensors = 'pt')['pixel_values']
+        pixel_values = self.processor(images = Image.open(image_path).convert('RGB'), return_tensors = 'pt')['pixel_values']
         pixel_values.squeeze_()
         data = {'input_ids': input_ids, 
                 'labels': labels, 
@@ -73,4 +92,4 @@ class VLMPaddingCollator:
         return {'input_ids': torch.tensor(input_ids),
                 'labels': torch.tensor(labels),
                 'pixel_values': torch.stack(pixel_values, dim=0),
-                'attention_mask': None} # TODO 
+                'attention_mask': torch.tensor(attention_mask)}

@@ -22,7 +22,7 @@ class SimpleVLMForConditionalGeneration(PreTrainedModel, GenerationMixin):
         image_features = self.vision_tower.vision_model(pixel_values).last_hidden_state
         image_embeds = self.projector(image_features).to(text_embeds.dtype)
         inputs_embeds = self._merge_input_ids_with_image_features(image_embeds, text_embeds, input_ids)
-        llm_outputs = self.llm(inputs_embeds = inputs_embeds, attention_mask = None) #TODO This should be changed
+        llm_outputs = self.llm(inputs_embeds = inputs_embeds, attention_mask = attention_mask)
         logits = llm_outputs.logits
 
         if labels is not None:
