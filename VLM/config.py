@@ -9,6 +9,7 @@ class SimpleVLMConfig(PretrainedConfig):
                 llm_path = 'Qwen/Qwen2.5-0.5B-Instruct',
                 vision_tower_path = 'openai/clip-vit-base-patch16',
                 image_pad_token = '<|image|>',
+                vision_token_num = 196,
                 **kwargs):
         self.llm_path = llm_path
         self.llm_config = AutoConfig.from_pretrained(llm_path)
@@ -19,5 +20,6 @@ class SimpleVLMConfig(PretrainedConfig):
         self.image_pad_token = image_pad_token
         self.image_pad_token_id = None
         self.vocab_size = self.llm_config.vocab_size
+        self.vision_token_num = vision_token_num
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
         super().__init__(**kwargs)

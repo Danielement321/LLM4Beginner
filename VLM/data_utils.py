@@ -4,18 +4,22 @@ from tqdm import tqdm
 from PIL import Image
 from torch.utils.data import Dataset
 from config import SimpleVLMConfig
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from utils import *
 
 class VLMDataset(Dataset):
-    def __init__(self, tokenizer, processor, data_path, config: SimpleVLMConfig, max_num = None):
+    def __init__(self, tokenizer, processor, data_path, config, max_num = None, validate = True, max_validation_workers = 16):
         super().__init__()
         self.config = config
         self.tokenizer = tokenizer
         self.processor = processor
-        self.num_image_tokens = 196 # TODO This should be changed accordingly
+        self.num_image_tokens = config.vision_token_num
         self.data = self._load_data(data_path, max_num)
         self.num = int(max_num) if max_num is not None else len(self.data)
-        self._validate_data()
+        if validate:
+            self._validate_data(max_validation_workers)
+        else:
+            print(Colors.YELLOW + "Data has not been validated, this may cause errors in training!" + Colors.RESET)
         if self.num > len(self.data):
             raise ValueError('num should be less than total data numbers')
         print(f'Total data lines:{self.num:,}')
@@ -34,16 +38,34 @@ class VLMDataset(Dataset):
             raise RuntimeError('Length of training data is 0!')
         return lines
     
-    def _validate_data(self):
-        for sample in self.data:
-            image_path = sample['image']
-            try:
-                Image.open(image_path)
-            except:
-                self.data.remove(sample)
-                self.num -= 1
-                print(Colors.RED + f'Error in file {image_path}' + Colors.RESET)
+    def _validate_data(self, max_validation_workers):
+        print("Validating Data...")
+        valid_samples = []
+
+        with ThreadPoolExecutor(max_workers=max_validation_workers) as executor:
+            futures = {
+                executor.submit(self._validate_single_data, sample): sample
+                for sample in self.data
+            }
+
+            for future in tqdm(as_completed(futures), total=len(self.data)):
+                sample = futures[future]
+                is_valid = future.result()
+                if is_valid:
+                    valid_samples.append(sample)
+
+        self.data = valid_samples
+        self.num = len(self.data)
     
+    def _validate_single_data(self, sample):
+        image_path = sample['image']
+        try:
+            Image.open(image_path).close()
+            return True
+        except Exception as e:
+            print(Colors.YELLOW + f"Error in file {image_path}: {e}" + Colors.RESET)
+            return False
+
     def _convert_keys(self, conversations): # Convert the keys of LLaVA Visual Instruct CC3M Pretrain 595K
         messages = []
         for conv in conversations:
@@ -91,5 +113,21 @@ class VLMPaddingCollator:
             
         return {'input_ids': torch.tensor(input_ids),
                 'labels': torch.tensor(labels),
-                'pixel_values': torch.stack(pixel_values, dim=0),
+                'pixel_values': torch.stack(pixel_values),
                 'attention_mask': torch.tensor(attention_mask)}
+        
+def convert_chat_prompt(prompt, image, tokenizer, processor, config):
+    if not '<image>' in prompt:
+        print(Colors.YELLOW + "<image> token is not in prompt" + Colors.RESET)
+    prompt = [{"role": "system", "content": "You are a helpful assistant."},
+              {"role": "user", "content": prompt.replace('<image>', config.image_pad_token * config.vision_token_num)}]
+    input_ids = tokenizer.apply_chat_template(prompt, add_generation_prompt = False, return_tensors = 'pt')
+    pixel_values = processor(images = image, return_tensors = 'pt')['pixel_values']
+    return {'input_ids': input_ids.to(config.device),
+            'pixel_values': pixel_values.to(config.device)}
+
+def convert_chat_reply(reply, inputs, tokenizer):
+    inputs = inputs['input_ids'][0].tolist()
+    reply = reply.tolist()[0][len(inputs):]
+    generated_text = tokenizer.decode(reply)
+    return generated_text
