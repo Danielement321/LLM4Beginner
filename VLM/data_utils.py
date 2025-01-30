@@ -67,7 +67,7 @@ class VLMDataset(Dataset):
             return False
 
     def _convert_keys(self, conversations): # Convert the keys of LLaVA dataset
-        messages = []
+        messages = [{"role": "system", "content": "You are a helpful assistant."}]
         for conv in conversations:
             role = "user" if conv["from"] == "human" else "assistant"
             content = conv["value"]
@@ -108,7 +108,7 @@ class VLMPaddingCollator:
         for data in features:
             input_ids.append(data['input_ids'] + [self.pad_token_id] * (max_seq_len - len(data['input_ids'])))
             labels.append(data['labels'] + [self.pad_token_id] * (max_seq_len - len(data['labels'])))
-            attention_mask.append(data['attention_mask'][:max_seq_len] + [0] * (max_seq_len - len(data['attention_mask'])))
+            attention_mask.append(data['attention_mask'] + [0] * (max_seq_len - len(data['attention_mask'])))
             pixel_values.append(data['pixel_values'])
             
         return {'input_ids': torch.tensor(input_ids),
@@ -121,9 +121,13 @@ def convert_chat_prompt(prompt, image, tokenizer, processor, config):
         print(Colors.YELLOW + "<image> token is not in prompt" + Colors.RESET)
     prompt = [{"role": "system", "content": "You are a helpful assistant."},
               {"role": "user", "content": prompt.replace('<image>', config.image_pad_token * config.vision_token_num)}]
-    input_ids = tokenizer.apply_chat_template(prompt, add_generation_prompt = False, return_tensors = 'pt')
+    prompt = tokenizer.apply_chat_template(prompt, add_generation_prompt = False, tokenize = False)
+    tokenized_prompt = tokenizer(prompt, return_tensors = 'pt')
+    input_ids = tokenized_prompt['input_ids']
+    attention_mask = tokenized_prompt['attention_mask']
     pixel_values = processor(images = image, return_tensors = 'pt')['pixel_values']
     return {'input_ids': input_ids.to(config.device),
+            'attention_mask': attention_mask.to(config.device),
             'pixel_values': pixel_values.to(config.device)}
 
 def convert_chat_reply(reply, inputs, tokenizer):
