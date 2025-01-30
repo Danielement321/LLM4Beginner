@@ -1,3 +1,5 @@
+# This script is used to download a dataset from the hub for LLM pretrain
+# Since the LLM dataclass reads json files, the downloaded data is formatted into json.
 import os
 os.environ['HF_ENDPOINT'] = 'https://hf-mirror.com'
 import datasets

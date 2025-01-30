@@ -2,7 +2,8 @@ import os
 os.environ['HF_ENDPOINT'] = 'https://hf-mirror.com'
 # os.environ['TRANSFORMERS_OFFLINE'] = '1'
 os.environ["TOKENIZERS_PARALLELISM"] = "false" # Otherwise there will be warnings, I don't know why.
-
+import torch
+torch.manual_seed(3407)
 from transformers import AutoTokenizer, TrainingArguments, Trainer, AutoProcessor
 from config import SimpleVLMConfig
 from data_utils import VLMDataset, VLMPaddingCollator

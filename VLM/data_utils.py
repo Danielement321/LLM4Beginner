@@ -66,7 +66,7 @@ class VLMDataset(Dataset):
             print(Colors.YELLOW + f"Error in file {image_path}: {e}" + Colors.RESET)
             return False
 
-    def _convert_keys(self, conversations): # Convert the keys of LLaVA Visual Instruct CC3M Pretrain 595K
+    def _convert_keys(self, conversations): # Convert the keys of LLaVA dataset
         messages = []
         for conv in conversations:
             role = "user" if conv["from"] == "human" else "assistant"
@@ -127,7 +127,8 @@ def convert_chat_prompt(prompt, image, tokenizer, processor, config):
             'pixel_values': pixel_values.to(config.device)}
 
 def convert_chat_reply(reply, inputs, tokenizer):
-    inputs = inputs['input_ids'][0].tolist()
-    reply = reply.tolist()[0][len(inputs):]
-    generated_text = tokenizer.decode(reply)
+    inputs = inputs['input_ids'][0]
+    skip_length = inputs.size(0) + 1
+    reply = reply[0][skip_length:]
+    generated_text = tokenizer.decode(reply, skip_special_tokens=True, clean_up_tokenization_spaces=True)
     return generated_text
