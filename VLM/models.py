@@ -22,14 +22,17 @@ class Projector(nn.Module):
 
 class SimpleVLMForConditionalGeneration(PreTrainedModel, GenerationMixin):
     config_class = SimpleVLMConfig
+    _supports_flash_attn_2 = True
+    _supports_sdpa = True
     
     def __init__(self, config: SimpleVLMConfig):
         super().__init__(config)
         self.config = config
         self.generation_config = vlm_generation_config
-        self.vision_tower = AutoModel.from_pretrained(config.vision_tower_path, _attn_implementation = config._attn_implementation)
-        self.llm = AutoModelForCausalLM.from_pretrained(config.llm_path, _attn_implementation = config._attn_implementation)
+        self.vision_tower = AutoModel.from_pretrained(config.vision_tower_path, _attn_implementation = config._attn_implementation, torch_dtype = torch.bfloat16)
+        self.llm = AutoModelForCausalLM.from_pretrained(config.llm_path, _attn_implementation = config._attn_implementation, torch_dtype = torch.bfloat16)
         self.projector = Projector(config)
+        print("Model Parameters:", f'{sum([m.numel() for m in self.parameters()]):,}')
 
     def freeze_llm(self):
         for param in self.llm.parameters():
@@ -48,9 +51,10 @@ class SimpleVLMForConditionalGeneration(PreTrainedModel, GenerationMixin):
         return image_features
     
     def forward(self, input_ids, pixel_values = None, labels = None, attention_mask = None, **kwargs):
-        text_embeds = self.llm.get_input_embeddings()(input_ids)
-        image_embeds = self.get_image_features(pixel_values, self.config.vision_feature_select_layer)
-        inputs_embeds = self._merge_input_ids_with_image_features(image_embeds, text_embeds, input_ids)
+        inputs_embeds = self.llm.get_input_embeddings()(input_ids)
+        if pixel_values is not None:
+            image_embeds = self.get_image_features(pixel_values, self.config.vision_feature_select_layer)
+            inputs_embeds = self._merge_input_ids_with_image_features(image_embeds, inputs_embeds, input_ids)
         llm_outputs = self.llm(inputs_embeds = inputs_embeds, attention_mask = attention_mask)
         logits = llm_outputs.logits
 

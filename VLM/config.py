@@ -13,6 +13,7 @@ class SimpleVLMConfig(PretrainedConfig):
                 vision_feature_select_layer = -1,
                 flash_attention = True,
                 **kwargs):
+        super().__init__(**kwargs)
         self.llm_path = llm_path
         self.llm_config = AutoConfig.from_pretrained(llm_path)
         self.llm_hidden_size = self.llm_config.hidden_size
@@ -26,7 +27,6 @@ class SimpleVLMConfig(PretrainedConfig):
         self.vision_feature_select_layer = vision_feature_select_layer
         self._attn_implementation = 'flash_attention_2' if flash_attention else 'sdpa'
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
-        super().__init__(**kwargs)
 
 # The special tokens are identical to Qwen
 vlm_generation_config = GenerationConfig(

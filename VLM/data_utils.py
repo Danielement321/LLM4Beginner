@@ -108,7 +108,7 @@ class VLMPaddingCollator:
         for data in features:
             input_ids.append(data['input_ids'] + [self.pad_token_id] * (max_seq_len - len(data['input_ids'])))
             labels.append(data['labels'] + [self.pad_token_id] * (max_seq_len - len(data['labels'])))
-            attention_mask.append(data['attention_mask'] + [0] * (max_seq_len - len(data['attention_mask'])))
+            attention_mask.append(data['attention_mask'][:max_seq_len] + [0] * (max_seq_len - len(data['attention_mask'])))
             pixel_values.append(data['pixel_values'])
             
         return {'input_ids': torch.tensor(input_ids),
@@ -117,22 +117,34 @@ class VLMPaddingCollator:
                 'attention_mask': torch.tensor(attention_mask)}
         
 def convert_chat_prompt(prompt, image, tokenizer, processor, config):
-    if not '<image>' in prompt:
-        print(Colors.YELLOW + "<image> token is not in prompt" + Colors.RESET)
-    prompt = [{"role": "system", "content": "You are a helpful assistant."},
-              {"role": "user", "content": prompt.replace('<image>', config.image_pad_token * config.vision_token_num)}]
-    prompt = tokenizer.apply_chat_template(prompt, add_generation_prompt = False, tokenize = False)
-    tokenized_prompt = tokenizer(prompt, return_tensors = 'pt')
-    input_ids = tokenized_prompt['input_ids']
-    attention_mask = tokenized_prompt['attention_mask']
-    pixel_values = processor(images = image, return_tensors = 'pt')['pixel_values']
-    return {'input_ids': input_ids.to(config.device),
-            'attention_mask': attention_mask.to(config.device),
-            'pixel_values': pixel_values.to(config.device)}
+    if image is not None:
+        if not isinstance(image, list):
+            image = [image]
+        prompt = "<image>\n" * len(image) + prompt
+        prompt = [{"role": "system", "content": "You are a helpful assistant."},
+                {"role": "user", "content": prompt.replace('<image>', config.image_pad_token * config.vision_token_num).strip()}]
+        prompt = tokenizer.apply_chat_template(prompt, add_generation_prompt = True, tokenize = False)
+        tokenized_prompt = tokenizer(prompt, return_tensors = 'pt')
+        input_ids = tokenized_prompt['input_ids']
+        attention_mask = tokenized_prompt['attention_mask']
+        pixel_values = processor(images = image, return_tensors = 'pt')['pixel_values']
+        return {'input_ids': input_ids.to(config.device),
+                'attention_mask': attention_mask.to(config.device),
+                'pixel_values': pixel_values.to(config.device)}
+    else:
+        print(Colors.YELLOW + "No image is provided. The model will run in text mode." + Colors.RESET)
+        prompt = [{"role": "system", "content": "You are a helpful assistant."},
+                {"role": "user", "content": prompt}]
+        prompt = tokenizer.apply_chat_template(prompt, add_generation_prompt = True, tokenize = False)
+        tokenized_prompt = tokenizer(prompt, return_tensors = 'pt')
+        input_ids = tokenized_prompt['input_ids']
+        attention_mask = tokenized_prompt['attention_mask']
+        return {'input_ids': input_ids.to(config.device),
+                'attention_mask': attention_mask.to(config.device)}
 
 def convert_chat_reply(reply, inputs, tokenizer):
     inputs = inputs['input_ids'][0]
-    skip_length = inputs.size(0) + 1
+    skip_length = inputs.size(0)
     reply = reply[0][skip_length:]
     generated_text = tokenizer.decode(reply, skip_special_tokens=True, clean_up_tokenization_spaces=True)
     return generated_text

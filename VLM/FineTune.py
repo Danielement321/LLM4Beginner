@@ -39,6 +39,7 @@ args = TrainingArguments(
     weight_decay=1e-3,
     lr_scheduler_type='cosine',
     dataloader_num_workers=8,
+    ddp_find_unused_parameters=False,
     )
 
 trainer = Trainer(model=model, args=args, train_dataset=dataset, processing_class=tokenizer, data_collator=data_collator)
