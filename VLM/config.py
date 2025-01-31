@@ -8,7 +8,7 @@ class SimpleVLMConfig(PretrainedConfig):
     def __init__(self, 
                 llm_path = 'Qwen/Qwen2.5-0.5B-Instruct',
                 vision_tower_path = 'openai/clip-vit-base-patch16',
-                image_pad_token = '<|image|>',
+                image_pad_token_id = 151665,
                 vision_token_num = 196,
                 vision_feature_select_layer = -1,
                 flash_attention = True,
@@ -20,7 +20,7 @@ class SimpleVLMConfig(PretrainedConfig):
         self.vision_tower_path = vision_tower_path
         self.vision_tower_config = AutoConfig.from_pretrained(vision_tower_path)
         self.vision_tower_hidden_size = self.vision_tower_config.vision_config.hidden_size
-        self.image_pad_token = image_pad_token
+        self.image_pad_token_id = image_pad_token_id
         self.vocab_size = self.llm_config.vocab_size
         self.vision_token_num = vision_token_num
         self.vision_feature_select_layer = vision_feature_select_layer

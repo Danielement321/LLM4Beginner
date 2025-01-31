@@ -83,7 +83,7 @@ class VLMDataset(Dataset):
         conversations = sample['conversations']
         image_path = sample['image']
         messages = self._convert_keys(conversations)
-        formatted_messages = self.tokenizer.apply_chat_template(messages, tokenize = False).replace('<image>', self.config.image_pad_token * self.num_image_tokens)
+        formatted_messages = self.tokenizer.apply_chat_template(messages, tokenize = False).replace('<image>', '<|image|>' * self.num_image_tokens)
         # print(formatted_messages)
         tokenized = self.tokenizer(formatted_messages)
         tokenized_input_ids = tokenized['input_ids']
@@ -123,7 +123,7 @@ def convert_chat_prompt(prompt, image, tokenizer, processor, config):
             image = [image]
         prompt = "<image>\n" * len(image) + prompt
         prompt = [{"role": "system", "content": "You are a helpful assistant."},
-                {"role": "user", "content": prompt.replace('<image>', config.image_pad_token * config.vision_token_num).strip()}]
+                {"role": "user", "content": prompt.replace('<image>', '<|image|>' * config.vision_token_num).strip()}]
         prompt = tokenizer.apply_chat_template(prompt, add_generation_prompt = True, tokenize = False)
         tokenized_prompt = tokenizer(prompt, return_tensors = 'pt')
         input_ids = tokenized_prompt['input_ids']
