@@ -8,5 +8,5 @@ class Colors:
     RESET = '\033[1m\033[0m'
 
 def config_check(config):
-    if not config.image_pad_token_id:
+    if not isinstance(config.image_pad_token_id, int):
         raise ValueError('image_pad_token_id is not assigned!')

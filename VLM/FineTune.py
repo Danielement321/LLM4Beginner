@@ -11,16 +11,17 @@ from utils import *
 from models import SimpleVLMForConditionalGeneration
 
 config = SimpleVLMConfig()
-tokenizer = AutoTokenizer.from_pretrained('ckpts/VLMPreTrain')
+tokenizer = AutoTokenizer.from_pretrained(config.llm_path)
 processor = AutoProcessor.from_pretrained(config.vision_tower_path)
 tokenizer.add_tokens(['<|image|>'])
 config.image_pad_token_id = tokenizer.encode(config.image_pad_token)[0]
 
-dataset = VLMDataset(tokenizer, processor, 'data/VLMData/FineTune', config)
+dataset = VLMDataset(tokenizer, processor, 'data/VLMData/PreTrainData/SimpleChat.json', config)
 data_collator = VLMPaddingCollator(tokenizer)
 
 config_check(config)
 model = SimpleVLMForConditionalGeneration.from_pretrained('ckpts/VLMPreTrain')
+model.config = config
 model.freeze_vision_tower()
 
 args = TrainingArguments(
@@ -29,7 +30,7 @@ args = TrainingArguments(
     num_train_epochs=3, 
     do_train=True, 
     per_device_train_batch_size=8,
-    gradient_accumulation_steps=4,
+    gradient_accumulation_steps=2,
     logging_steps=1,
     report_to='tensorboard',
     save_steps=5000,
