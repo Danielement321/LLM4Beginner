@@ -1,25 +1,23 @@
 import os
-os.environ['HF_ENDPOINT'] = 'https://hf-mirror.com'
-# os.environ['TRANSFORMERS_OFFLINE'] = '1'
+# os.environ['HF_ENDPOINT'] = 'https://hf-mirror.com'
+os.environ['TRANSFORMERS_OFFLINE'] = '1'
 os.environ["TOKENIZERS_PARALLELISM"] = "false" # Otherwise there will be warnings, I don't know why.
-import torch
-torch.manual_seed(3407)
+from utils import set_seed
+set_seed(3407)
 from transformers import AutoTokenizer, TrainingArguments, Trainer, AutoProcessor
 from config import SimpleVLMConfig
 from data_utils import VLMDataset, VLMPaddingCollator
-from utils import *
 from models import SimpleVLMForConditionalGeneration
 
 config = SimpleVLMConfig()
 tokenizer = AutoTokenizer.from_pretrained(config.llm_path)
 processor = AutoProcessor.from_pretrained(config.vision_tower_path)
 tokenizer.add_tokens(['<|image|>'])
-config.image_pad_token_id = tokenizer.encode(config.image_pad_token)[0]
+print(f'image_pad_token_id:{tokenizer.encode('<|image|>')}')
 
 dataset = VLMDataset(tokenizer, processor, 'data/VLMData/PreTrainData/SimpleChat.json', config)
 data_collator = VLMPaddingCollator(tokenizer)
 
-config_check(config)
 model = SimpleVLMForConditionalGeneration(config)
 model.freeze_llm()
 model.freeze_vision_tower()
@@ -36,7 +34,7 @@ args = TrainingArguments(
     save_steps=5000,
     save_total_limit=5,
     bf16=True,
-    learning_rate=1e-3,
+    learning_rate=2e-3,
     weight_decay=1e-3,
     lr_scheduler_type='cosine',
     dataloader_num_workers=8,
@@ -46,4 +44,6 @@ args = TrainingArguments(
 trainer = Trainer(model=model, args=args, train_dataset=dataset, processing_class=tokenizer, data_collator=data_collator)
 trainer.train()
 trainer.save_model('ckpts/VLMPreTrain')
+processor.save_pretrained('ckpts/VLMPreTrain')
+tokenizer.save_pretrained('ckpts/VLMPreTrain')
 print('Finished!')

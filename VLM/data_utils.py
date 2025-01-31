@@ -1,9 +1,10 @@
 import torch
+from torch.utils.data import Dataset
+import time
 from glob import glob
 from tqdm import tqdm
 from PIL import Image
-from torch.utils.data import Dataset
-from config import SimpleVLMConfig
+from transformers import TextStreamer
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from utils import *
 
@@ -148,3 +149,20 @@ def convert_chat_reply(reply, inputs, tokenizer):
     reply = reply[0][skip_length:]
     generated_text = tokenizer.decode(reply, skip_special_tokens=True, clean_up_tokenization_spaces=True)
     return generated_text
+
+class TTFTTextStreamer(TextStreamer):
+    def __init__(self, tokenizer, skip_prompt=True):
+        super().__init__(tokenizer, skip_prompt)
+        self.start_time = None
+        self.first_token_time = None
+        self.conuter = 0
+
+    def put(self, token_id):
+        self.conuter += 1
+        if self.start_time is None:
+            self.start_time = time.time()
+        if self.first_token_time is None and self.conuter == 2:
+            self.first_token_time = time.time()
+            ttft = self.first_token_time - self.start_time
+            print(Colors.GREEN + f"Time to First Token (TTFT): {ttft:.4f} seconds" + Colors.RESET)
+        super().put(token_id)

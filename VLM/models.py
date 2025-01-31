@@ -29,9 +29,12 @@ class SimpleVLMForConditionalGeneration(PreTrainedModel, GenerationMixin):
         super().__init__(config)
         self.config = config
         self.generation_config = vlm_generation_config
-        self.vision_tower = AutoModel.from_pretrained(config.vision_tower_path, _attn_implementation = config._attn_implementation, torch_dtype = torch.bfloat16)
-        self.llm = AutoModelForCausalLM.from_pretrained(config.llm_path, _attn_implementation = config._attn_implementation, torch_dtype = torch.bfloat16)
+        self.vision_tower = AutoModel.from_pretrained(config.vision_tower_path, 
+                                                      _attn_implementation = config._attn_implementation, torch_dtype = torch.bfloat16)
+        self.llm = AutoModelForCausalLM.from_pretrained(config.llm_path, 
+                                                        _attn_implementation = config._attn_implementation, torch_dtype = torch.bfloat16)
         self.projector = Projector(config)
+        self.register_buffer('image_pad_token_id', torch.tensor(151665)) # TODO This should be changed accordingly
         print("Model Parameters:", f'{sum([m.numel() for m in self.parameters()]):,}')
 
     def freeze_llm(self):
@@ -68,13 +71,13 @@ class SimpleVLMForConditionalGeneration(PreTrainedModel, GenerationMixin):
         
     def _merge_input_ids_with_image_features(self, image_embeds, inputs_embeds, input_ids):
         image_embeds = image_embeds.to(inputs_embeds.dtype)
-        batch_idx, seq_idx = torch.where(input_ids == self.config.image_pad_token_id)
+        batch_idx, seq_idx = torch.where(input_ids == self.image_pad_token_id)
         inputs_embeds[batch_idx, seq_idx, :] = rearrange(image_embeds, 'b l d -> (b l) d')
         return inputs_embeds
 
         
 def load_model(model_path: str):
-    model = SimpleVLMForConditionalGeneration.from_pretrained(model_path)
+    model = SimpleVLMForConditionalGeneration.from_pretrained(model_path).bfloat16()
     tokenizer = AutoTokenizer.from_pretrained(model_path)
-    processor = AutoProcessor.from_pretrained(model.config.vision_tower_path)
+    processor = AutoProcessor.from_pretrained(model_path)
     return tokenizer, processor, model.to(model.config.device)

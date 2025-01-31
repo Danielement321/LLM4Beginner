@@ -21,7 +21,6 @@ class SimpleVLMConfig(PretrainedConfig):
         self.vision_tower_config = AutoConfig.from_pretrained(vision_tower_path)
         self.vision_tower_hidden_size = self.vision_tower_config.vision_config.hidden_size
         self.image_pad_token = image_pad_token
-        self.image_pad_token_id = None
         self.vocab_size = self.llm_config.vocab_size
         self.vision_token_num = vision_token_num
         self.vision_feature_select_layer = vision_feature_select_layer

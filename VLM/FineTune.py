@@ -2,34 +2,28 @@ import os
 os.environ['HF_ENDPOINT'] = 'https://hf-mirror.com'
 # os.environ['TRANSFORMERS_OFFLINE'] = '1'
 os.environ["TOKENIZERS_PARALLELISM"] = "false" # Otherwise there will be warnings, I don't know why.
-import torch
-torch.manual_seed(3407)
+from utils import set_seed
+set_seed(3407)
 from transformers import AutoTokenizer, TrainingArguments, Trainer, AutoProcessor
-from config import SimpleVLMConfig
 from data_utils import VLMDataset, VLMPaddingCollator
-from utils import *
 from models import SimpleVLMForConditionalGeneration
 
-config = SimpleVLMConfig()
-tokenizer = AutoTokenizer.from_pretrained(config.llm_path)
-processor = AutoProcessor.from_pretrained(config.vision_tower_path)
-tokenizer.add_tokens(['<|image|>'])
-config.image_pad_token_id = tokenizer.encode(config.image_pad_token)[0]
+pre_trained_path = 'ckpts/VLMPreTrain'
+tokenizer = AutoTokenizer.from_pretrained(pre_trained_path)
+processor = AutoProcessor.from_pretrained(pre_trained_path)
 
-dataset = VLMDataset(tokenizer, processor, 'data/VLMData/PreTrainData/SimpleChat.json', config)
-data_collator = VLMPaddingCollator(tokenizer)
-
-config_check(config)
-model = SimpleVLMForConditionalGeneration.from_pretrained('ckpts/VLMPreTrain')
-model.config = config
+model = SimpleVLMForConditionalGeneration.from_pretrained(pre_trained_path)
 model.freeze_vision_tower()
+
+dataset = VLMDataset(tokenizer, processor, 'data/VLMData/PreTrainData/SimpleChat.json', model.config)
+data_collator = VLMPaddingCollator(tokenizer)
 
 args = TrainingArguments(
     output_dir='ckpts/VLMFinetune',
     logging_dir='runs',
-    num_train_epochs=3, 
+    num_train_epochs=1, 
     do_train=True, 
-    per_device_train_batch_size=8,
+    per_device_train_batch_size=4,
     gradient_accumulation_steps=2,
     logging_steps=1,
     report_to='tensorboard',
@@ -46,4 +40,6 @@ args = TrainingArguments(
 trainer = Trainer(model=model, args=args, train_dataset=dataset, processing_class=tokenizer, data_collator=data_collator)
 trainer.train()
 trainer.save_model('ckpts/VLMFinetune')
+processor.save_pretrained('ckpts/VLMFinetune')
+tokenizer.save_pretrained('ckpts/VLMFinetune')
 print('Finished!')
