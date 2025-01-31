@@ -8,7 +8,7 @@ from utils import Colors
 
 tokenizer, processor, model = load_model('/root/LLM4Beginner/ckpts/VLMFinetune')
 
-print(Colors.GREEN + "This chat is without history context. (Ctrl + C to exit)" + Colors.RESET)
+print(Colors.BLUE + "This chat is without history context. (Ctrl + C to exit)" + Colors.RESET)
 
 while True:
     prompt = input(Colors.GREEN + 'Text Input >>> ' + Colors.RESET)

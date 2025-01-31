@@ -5,6 +5,7 @@ from transformers import PreTrainedModel, AutoModelForCausalLM, AutoModel, Gener
 from transformers.modeling_outputs import CausalLMOutput
 from config import SimpleVLMConfig, vlm_generation_config
 from utils import Colors
+from constants import IMAGE_PAD_TOKEN_ID
 from einops import rearrange
 
 class Projector(nn.Module):
@@ -34,7 +35,7 @@ class SimpleVLMForConditionalGeneration(PreTrainedModel, GenerationMixin):
         self.llm = AutoModelForCausalLM.from_pretrained(config.llm_path, 
                                                         _attn_implementation = config._attn_implementation, torch_dtype = torch.bfloat16)
         self.projector = Projector(config)
-        self.register_buffer('image_pad_token_id', torch.tensor(151665)) # TODO This should be changed accordingly
+        self.register_buffer('image_pad_token_id', torch.tensor(IMAGE_PAD_TOKEN_ID))
         print("Model Parameters:", f'{sum([m.numel() for m in self.parameters()]):,}')
 
     def freeze_llm(self):
@@ -71,7 +72,7 @@ class SimpleVLMForConditionalGeneration(PreTrainedModel, GenerationMixin):
         
     def _merge_input_ids_with_image_features(self, image_embeds, inputs_embeds, input_ids):
         image_embeds = image_embeds.to(inputs_embeds.dtype)
-        batch_idx, seq_idx = torch.where(input_ids == self.image_pad_token_id)
+        batch_idx, seq_idx = torch.where(input_ids == IMAGE_PAD_TOKEN_ID)
         inputs_embeds[batch_idx, seq_idx, :] = rearrange(image_embeds, 'b l d -> (b l) d')
         return inputs_embeds
 

@@ -6,7 +6,7 @@ from utils import set_seed
 set_seed(3407)
 from transformers import AutoTokenizer, TrainingArguments, Trainer, AutoProcessor
 from config import SimpleVLMConfig
-from data_utils import VLMDataset, VLMPaddingCollator
+from data_utils import VLMPTDataset, VLMPaddingCollator
 from models import SimpleVLMForConditionalGeneration
 
 config = SimpleVLMConfig()
@@ -15,7 +15,7 @@ processor = AutoProcessor.from_pretrained(config.vision_tower_path)
 tokenizer.add_tokens(['<|image|>'])
 print(f'image_pad_token_id:{tokenizer.encode('<|image|>')}')
 
-dataset = VLMDataset(tokenizer, processor, 'data/VLMData/PreTrainData/SimpleChat.json', config)
+dataset = VLMPTDataset(tokenizer, processor, 'data/VLMData/PreTrainData/SimpleChat.json', config)
 data_collator = VLMPaddingCollator(tokenizer)
 
 model = SimpleVLMForConditionalGeneration(config)
