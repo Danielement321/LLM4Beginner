@@ -3,7 +3,7 @@ os.environ['TRANSFORMERS_OFFLINE'] = '1'
 # import torch
 from models import load_model
 from PIL import Image
-from data_utils import convert_chat_prompt, TTFTTextStreamer
+from data_utils import convert_chat_prompt, TextStreamerWithTime
 from utils import Colors
 
 tokenizer, processor, model = load_model('/root/LLM4Beginner/ckpts/VLMFinetune')
@@ -20,6 +20,6 @@ while True:
         image = None
         print('Receive 0 Images.')
     inputs = convert_chat_prompt(prompt, image, tokenizer, processor, model.config)
-    streamer = TTFTTextStreamer(tokenizer, skip_prompt=True)
+    streamer = TextStreamerWithTime(tokenizer, skip_prompt=True)
     model.generate(**inputs, streamer=streamer, max_new_tokens = 500)
     print()

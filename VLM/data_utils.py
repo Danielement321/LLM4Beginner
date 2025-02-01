@@ -1,6 +1,7 @@
 import torch
 from torch.utils.data import Dataset
 import time
+import copy
 from constants import *
 from glob import glob
 from tqdm import tqdm
@@ -85,6 +86,7 @@ class VLMPTDataset(Dataset):
         tokenized = self.tokenizer.apply_chat_template(messages, return_dict = True)
         tokenized_input_ids = tokenized['input_ids']
         attention_mask = tokenized['attention_mask']
+        loss_mask = copy.deepcopy(attention_mask)
         input_ids = tokenized_input_ids[:-1]
         labels = tokenized_input_ids[1:]
         pixel_values = self.processor(images = Image.open(image_path).convert('RGB'), return_tensors = 'pt')['pixel_values']
@@ -92,7 +94,8 @@ class VLMPTDataset(Dataset):
         data = {'input_ids': input_ids, 
                 'labels': labels, 
                 'pixel_values': pixel_values,
-                'attention_mask': attention_mask}
+                'attention_mask': attention_mask,
+                'loss_mask': loss_mask}
         return data
 
 class VLMSFTDataset(VLMPTDataset):
@@ -114,7 +117,7 @@ class VLMSFTDataset(VLMPTDataset):
         
         if len(starts) != len(ends) or len(starts) * len(ends) == 0: 
             # For invalid data, compute loss for the whole sequence
-            print(Colors.YELLOW + "The response of current data is invalid." + Colors.RESET)
+            print(Colors.YELLOW + "Current SFT data is invalid." + Colors.RESET)
             assistant_tokens_mask = [1] * len(attention_mask)
             return assistant_tokens_mask
 
@@ -128,8 +131,9 @@ class VLMSFTDataset(VLMPTDataset):
         image_path = sample['image']
         messages = self._convert_keys(conversations)
         tokenized = self.tokenizer.apply_chat_template(messages, return_dict = True)
-        attention_mask = self.get_assistant_tokens_mask(tokenized['input_ids'], tokenized['attention_mask'])
+        loss_mask = self.get_assistant_tokens_mask(tokenized['input_ids'], tokenized['attention_mask'])
         tokenized_input_ids = tokenized['input_ids']
+        attention_mask = tokenized['attention_mask']
         input_ids = tokenized_input_ids[:-1]
         labels = tokenized_input_ids[1:]
         pixel_values = self.processor(images = Image.open(image_path).convert('RGB'), return_tensors = 'pt')['pixel_values']
@@ -137,7 +141,8 @@ class VLMSFTDataset(VLMPTDataset):
         data = {'input_ids': input_ids, 
                 'labels': labels, 
                 'pixel_values': pixel_values,
-                'attention_mask': attention_mask}
+                'attention_mask': attention_mask,
+                'loss_mask': loss_mask}
         return data
 
 
@@ -148,17 +153,19 @@ class VLMPaddingCollator:
         
     def __call__(self, features):
         max_seq_len = max(len(x['input_ids']) for x in features)
-        input_ids, labels, pixel_values, attention_mask = [], [], [], []
+        input_ids, labels, pixel_values, attention_mask, loss_mask = [], [], [], [], []
         for data in features:
             input_ids.append(data['input_ids'] + [self.pad_token_id] * (max_seq_len - len(data['input_ids'])))
             labels.append(data['labels'] + [self.pad_token_id] * (max_seq_len - len(data['labels'])))
             attention_mask.append(data['attention_mask'][:max_seq_len] + [0] * (max_seq_len - len(data['attention_mask'])))
+            loss_mask.append(data['loss_mask'][:max_seq_len] + [0] * (max_seq_len - len(data['loss_mask'])))
             pixel_values.append(data['pixel_values'])
             
         return {'input_ids': torch.tensor(input_ids),
                 'labels': torch.tensor(labels),
                 'pixel_values': torch.stack(pixel_values),
-                'attention_mask': torch.tensor(attention_mask)}
+                'attention_mask': torch.tensor(attention_mask),
+                'loss_mask': torch.tensor(loss_mask)}
         
 def convert_chat_prompt(prompt, image, tokenizer, processor, config):
     if image is not None:
@@ -191,7 +198,7 @@ def convert_chat_reply(reply, inputs, tokenizer):
     generated_text = tokenizer.decode(reply, skip_special_tokens=True, clean_up_tokenization_spaces=True)
     return generated_text
 
-class TTFTTextStreamer(TextStreamer):
+class TextStreamerWithTime(TextStreamer):
     def __init__(self, tokenizer, skip_prompt=True):
         super().__init__(tokenizer, skip_prompt)
         self.start_time = None
@@ -210,4 +217,4 @@ class TTFTTextStreamer(TextStreamer):
     def end(self):
         super().end()
         print(Colors.BLUE + f"Time to First Token: {self.ttft:.4f} s" + Colors.RESET)
-        print(Colors.BLUE + f'Time Per Token: {(time.time() - self.start_time)/self.counter}s' + Colors.RESET)
+        print(Colors.BLUE + f'Time Per Token: {(time.time() - self.start_time)/self.counter:.4f}s' + Colors.RESET)

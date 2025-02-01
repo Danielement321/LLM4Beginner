@@ -54,7 +54,8 @@ class SimpleVLMForConditionalGeneration(PreTrainedModel, GenerationMixin):
         image_features = self.projector(selected_image_feature)
         return image_features
     
-    def forward(self, input_ids, pixel_values = None, labels = None, attention_mask = None, **kwargs):
+    def forward(self, input_ids, pixel_values = None, labels = None, 
+                attention_mask = None, loss_mask = None, **kwargs):
         inputs_embeds = self.llm.get_input_embeddings()(input_ids)
         if pixel_values is not None:
             image_embeds = self.get_image_features(pixel_values, self.config.vision_feature_select_layer)
@@ -63,8 +64,8 @@ class SimpleVLMForConditionalGeneration(PreTrainedModel, GenerationMixin):
         logits = llm_outputs.logits
 
         if labels is not None:
-            shift_labels = labels[attention_mask != 0]
-            shift_logits = logits[attention_mask != 0]
+            shift_labels = labels[loss_mask != 0]
+            shift_logits = logits[loss_mask != 0]
             loss = F.cross_entropy(shift_logits, shift_labels)
             return CausalLMOutput(logits=logits, loss=loss)
         else:
