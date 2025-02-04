@@ -25,7 +25,7 @@ class VLMPTDataset(Dataset):
             print(Colors.YELLOW + "Data has not been validated, this may cause errors in training!" + Colors.RESET)
         if self.num > len(self.data):
             raise ValueError('num should be less than total data numbers')
-        print(f'Total data lines:{self.num:,}')
+        print(f'{Colors.CYAN}Total data lines:{self.num:,}{Colors.RESET}')
     
     def _load_data(self, data_folder):
         lines = []
@@ -59,13 +59,16 @@ class VLMPTDataset(Dataset):
         self.num = len(self.data)
     
     def _validate_single_data(self, sample):
-        image_path = sample['image']
-        try:
-            Image.open(image_path).close()
+        if 'image' in sample.keys():
+            image_path = sample['image']
+            try:
+                Image.open(image_path).close()
+                return True
+            except Exception as e:
+                print(Colors.YELLOW + f"Error in file {image_path}: {e}" + Colors.RESET)
+                return False
+        else:
             return True
-        except Exception as e:
-            print(Colors.YELLOW + f"Error in file {image_path}: {e}" + Colors.RESET)
-            return False
 
     def _convert_keys(self, conversations): # Convert the keys of LLaVA dataset
         messages = [{"role": "system", "content": "You are a helpful assistant."}]
@@ -81,7 +84,6 @@ class VLMPTDataset(Dataset):
     def __getitem__(self, index):
         sample = self.data[index]
         conversations = sample['conversations']
-        image_path = sample['image']
         messages = self._convert_keys(conversations)
         tokenized = self.tokenizer.apply_chat_template(messages, return_dict = True)
         tokenized_input_ids = tokenized['input_ids']
@@ -89,14 +91,17 @@ class VLMPTDataset(Dataset):
         loss_mask = copy.deepcopy(attention_mask)
         input_ids = tokenized_input_ids[:-1]
         labels = tokenized_input_ids[1:]
-        pixel_values = self.processor(images = Image.open(image_path).convert('RGB'), return_tensors = 'pt')['pixel_values']
-        pixel_values.squeeze_()
-        data = {'input_ids': input_ids, 
+        if 'image' in sample.keys():
+            image_path = sample['image']
+            pixel_values = self.processor(images = Image.open(image_path).convert('RGB'), return_tensors = 'pt')['pixel_values']
+            pixel_values.squeeze_()
+        else:
+            pixel_values = None
+        return {'input_ids': input_ids, 
                 'labels': labels, 
                 'pixel_values': pixel_values,
                 'attention_mask': attention_mask,
                 'loss_mask': loss_mask}
-        return data
 
 class VLMSFTDataset(VLMPTDataset):
     def __init__(self, tokenizer, processor, data_path, config,
@@ -128,7 +133,6 @@ class VLMSFTDataset(VLMPTDataset):
     def __getitem__(self, index):
         sample = self.data[index]
         conversations = sample['conversations']
-        image_path = sample['image']
         messages = self._convert_keys(conversations)
         tokenized = self.tokenizer.apply_chat_template(messages, return_dict = True)
         loss_mask = self.get_assistant_tokens_mask(tokenized['input_ids'], tokenized['attention_mask'])
@@ -136,14 +140,17 @@ class VLMSFTDataset(VLMPTDataset):
         attention_mask = tokenized['attention_mask']
         input_ids = tokenized_input_ids[:-1]
         labels = tokenized_input_ids[1:]
-        pixel_values = self.processor(images = Image.open(image_path).convert('RGB'), return_tensors = 'pt')['pixel_values']
-        pixel_values.squeeze_()
-        data = {'input_ids': input_ids, 
+        if 'image' in sample.keys():
+            image_path = sample['image']
+            pixel_values = self.processor(images = Image.open(image_path).convert('RGB'), return_tensors = 'pt')['pixel_values']
+            pixel_values.squeeze_()
+        else:
+            pixel_values = None
+        return {'input_ids': input_ids, 
                 'labels': labels, 
                 'pixel_values': pixel_values,
                 'attention_mask': attention_mask,
                 'loss_mask': loss_mask}
-        return data
 
 
 class VLMPaddingCollator:
@@ -159,7 +166,8 @@ class VLMPaddingCollator:
             labels.append(data['labels'] + [self.pad_token_id] * (max_seq_len - len(data['labels'])))
             attention_mask.append(data['attention_mask'][:max_seq_len] + [0] * (max_seq_len - len(data['attention_mask'])))
             loss_mask.append(data['loss_mask'][:max_seq_len] + [0] * (max_seq_len - len(data['loss_mask'])))
-            pixel_values.append(data['pixel_values'])
+            if data['pixel_values'] is not None:
+                pixel_values.append(data['pixel_values'])
             
         return {'input_ids': torch.tensor(input_ids),
                 'labels': torch.tensor(labels),
