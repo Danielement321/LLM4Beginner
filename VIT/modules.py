@@ -65,7 +65,7 @@ class MultiHeadAttention(nn.Module):
         self.d_k = config.hidden_size // config.num_attention_heads
         self.num_heads = config.num_attention_heads
         self.softmax = nn.Softmax(dim=-1)
-        self.RoPE = RotaryEmbedding(config)
+        # self.RoPE = RotaryEmbedding(config)
         self.Q_norm = RMSNorm(config)
         self.K_norm = RMSNorm(config)
         self.V_norm = RMSNorm(config)
@@ -88,7 +88,7 @@ class MultiHeadAttention(nn.Module):
         q = rearrange(q, 'b l (h k) -> b l h k', h = self.num_heads)
         k = rearrange(k, 'b l (h k) -> b l h k', h = self.num_heads)
         v = rearrange(v, 'b l (h k) -> b h l k', h = self.num_heads)
-        q, k = self.RoPE.embed(q, k)
+        # q, k = self.RoPE.embed(q, k)
         q = rearrange(q, 'b l h k -> b h l k')
         k = rearrange(k, 'b l h k -> b h l k')
         return q, k, v
@@ -107,7 +107,7 @@ class MultiHeadAttention(nn.Module):
     def flash_attention(self, q, k, v, mask=None):
         q, k, v = self._process_qkv(q, k, v)
 
-        output = torch.nn.functional.scaled_dot_product_attention(q, k, v, is_causal=True, dropout_p=self.config.dropout)
+        output = torch.nn.functional.scaled_dot_product_attention(q, k, v, is_causal=False, dropout_p=self.config.dropout)
 
         output = rearrange(output, 'b h l k -> b l (h k)')
         return output
@@ -181,7 +181,7 @@ class Encoder(nn.Module):
         super().__init__()
         self.device = config.device
         self.d_model = config.hidden_size
-        self.embed = nn.Embedding(config.vocab_size, config.hidden_size)
+        # self.embed = nn.Embedding(config.vocab_size, config.hidden_size)
         self.encoder_blocks = nn.ModuleList([EncoderBlock(config) for _ in range(config.n_layers)])
     
     def forward(self, x, mask = None, embed = True):

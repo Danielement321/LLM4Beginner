@@ -1,7 +1,8 @@
 import matplotlib.pyplot as plt
 from config import *
 import math
-import datasets
+from sklearn.metrics import accuracy_score
+import torch
 
 class Colors:
     RED = '\033[1m\033[31m'
@@ -12,22 +13,6 @@ class Colors:
     CYAN = '\033[1m\033[36m'
     RESET = '\033[1m\033[0m'
 
-def config_check(config):
-    print(f'CONFIG:{config}')
-    if config.device == 'cpu':
-        print(Colors.RED + 'CUDA is not availabel! Using CPU as the main device.' + Colors.RESET)
-    if config.vocab_size == 999999:
-        print(Colors.RED + 'The vocab_size is not set according to the size of tokenizer, this might cause OOM!' + Colors.RESET)
-    if hasattr(config, 'num_attention_heads') and config.hidden_size % config.num_attention_heads != 0:
-        raise RuntimeError('hidden_size % num_attention_heads must be 0!')
-    if config.hidden_size % 2 != 0:
-        raise ValueError('hidden_size must be even!')
-
-def vit_config_check():
-    print(f'VIT CONFIG:{VIT_CONFIG}')
-    config_check()
-    if VIT_CONFIG['image_size'] % VIT_CONFIG['patch_size'] != 0:
-        raise RuntimeError(f'image_size % patch_size must be 0!')
 
 def plot_attention(model, layer = 0, batch_idx = 0):
     if not hasattr(model, 'attention_map') or not model.attention_map:
@@ -49,7 +34,23 @@ def plot_attention(model, layer = 0, batch_idx = 0):
     plt.tight_layout()
     plt.show()
 
-def download_dataset(dataset_path, output_path):
-    dataset = datasets.load_dataset(dataset_path, split='train')
-    dataset = dataset.to_json(output_path)
-    print('The dataset from hub has been saved as json files!')
+    
+class ImageClassificationCollator:
+    def __init__(self):
+        pass
+
+    def __call__(self, x):
+        images, targets = [], []
+        for img, target in x:
+            images.append(img)
+            targets.append(target)
+        images = torch.stack(images)
+        targets = torch.tensor(targets)
+        return {'pixel_values': images, 'labels': targets}
+
+def compute_metrics(p):
+    preds, labels = p
+    preds = torch.argmax(torch.tensor(preds), dim=1)
+    accuracy = accuracy_score(labels, preds)
+    print(Colors.BLUE + f'\nAccuracy: {accuracy:.4f}' + Colors.RESET)
+    return {"accuracy": accuracy}
