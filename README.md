@@ -4,7 +4,7 @@ This is a simple repository for LLM by a student in AI, with the purpose of enha
 ## This repository contains
 1. A simple fully connected model with SwiGELU for generation.
 2. A simple Decoder-Only Transformer for generation, which can be seen as the simple FFN model with attention mechanism.
-3. Attention map visualization support for transformer-based models.
+3. Attention map visualization support for LLM and VIT.
 4. A Vision Transformer (VIT) for image classification.
 
 ## Install
@@ -18,7 +18,7 @@ You should create three folders: data & ckpts for data storage and checkpoints s
 
 The data folder contains files in text for training, e.g. an e-book in txt file.
 
-**IMPORTANT** If you do not have local cache for tokenizer, please uncomment `os.environ['TRANSFORMERS_OFFLINE'] = '1'`. If you encounter network problem, especially for those in China mainland, please uncomment `os.environ['HF_ENDPOINT'] = 'https://hf-mirror.com'`.
+**IMPORTANT:** If you do not have local cache for tokenizer, please uncomment `os.environ['TRANSFORMERS_OFFLINE'] = '1'`. If you encounter network problem, especially for those in China mainland, please uncomment `os.environ['HF_ENDPOINT'] = 'https://hf-mirror.com'`.
 
 ## Train
 ### Simple FFN Model For Generation
@@ -40,7 +40,9 @@ As for the VIT, run
 
     python VIT/trainVIT.py
 
-This will automatically download CIFAR-10 dataset for training. You can change it to any dataset easily.
+This will automatically download CIFAR-10 dataset for training. You can change it to any dataset easily. Please remember to modify the `config` according to the image size.
+
+A notebook for visualizing attention map is also provided in `VLM/AttentionMap.ipynb`.
 
 ### Simple Vision Language Model
 The VLM is trained in two stages.

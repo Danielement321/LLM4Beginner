@@ -16,6 +16,7 @@ class VIT(PreTrainedModel):
     def __init__(self, config: SimpleVITConfig):
         super().__init__(config)
         self.config = config
+        self.attention_map = False
         self.patch_num = int(config.image_size / config.patch_size) ** 2
         self.conv = nn.Conv2d(config.in_channels, config.hidden_size, kernel_size=config.patch_size, stride=config.patch_size)
         self.cls_token = nn.Parameter(torch.rand(1, 1, config.hidden_size))
@@ -35,6 +36,15 @@ class VIT(PreTrainedModel):
         x = torch.cat([cls_token, x], dim=1) + self.patch_embed
         x = self.encoder(x, embed = False)
         return x
+    
+    def apply_attention_map(self):
+        self.attention_map = True
+        for block in self.encoder.encoder_blocks:
+            if isinstance(block, EncoderBlock):
+                original_weights = block.self_attention.state_dict()
+                block.self_attention = MultiHeadSelfAttentionWithMap(self.config).to(self.config.device)
+                block.self_attention.load_state_dict(original_weights)
+        print(Colors.MAGENTA + 'Attention_map is now supported! This may cause unnecessary memory consumption if you are not conducting a visualization.' + Colors.RESET)
 
 class VITForClassification(VIT):
     def __init__(self, config, num_classes = 10):

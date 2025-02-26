@@ -115,7 +115,10 @@ class MultiHeadAttention(nn.Module):
     def attention_with_weights(self, q, k, v, mask):
         q, k, v = self._process_qkv(q, k, v)
 
-        scores = (q @ k.transpose(-1, -2)) / self.d_k**0.5 + mask
+        if mask is not None:
+            scores = (q @ k.transpose(-1, -2)) / self.d_k**0.5 + mask
+        else:
+            scores = (q @ k.transpose(-1, -2)) / self.d_k**0.5
 
         self.attention_weights = self.softmax(scores)
         score = self.attention_weights @ v
@@ -167,11 +170,11 @@ class MultiHeadCrossAttention(MultiHeadAttention):
 class EncoderBlock(nn.Module):
     def __init__(self, config):
         super().__init__()
-        self.attention = MultiHeadSelfAttention(config)
+        self.self_attention = MultiHeadSelfAttention(config)
         self.ffn = FFN(config)
     
     def forward(self, src, mask = None):
-        src = self.attention(src, mask)
+        src = self.self_attention(src, mask)
         src = self.ffn(src)
         return src
 
