@@ -40,7 +40,7 @@ As for the VIT, run
 
     python VIT/trainVIT.py
 
-This will automatically download CIFAR-10 dataset for training. You can change it to any dataset easily. Please remember to modify the `config` according to the image size.
+This will automatically download MNIST dataset for training. You can change it to any dataset easily. Please remember to modify the `config` according to the image size.
 
 A notebook for visualizing attention map is also provided in `VLM/AttentionMap.ipynb`.
 
@@ -66,7 +66,9 @@ The VLM is trained in two stages.
 A generation task is given in `LLM/Generate.ipynb`, the generation includes random generation (start with random tokens) and context generation (start with given context). Before generating, please make sure that your trained weights is ready. Enjoy!
 
 ## Attention Visualization
-An example for attention map visualization is in `LLM/AttentionMap.ipynb`. This note book first execute context generation task and then plot the attention score for specific layer and heads. Currently this notebook only supports the visualization of text transformer, and support of VIT will be included in the future.
+- LLM: An example for LLM attention map visualization is in `LLM/AttentionMap.ipynb`. This note book first execute context generation task and then plot the attention score for specific layer and heads.
+- VIT: A notebook of VIT attention map is in `VIT/AttentionMap.ipynb`. You should first train the model and then run this notebook. Here is an example on MNIST test set.
+![VITAttnMap](assets/VITAttnMap.png)
 
 ## Acknowledgement
 This project draws inspiration and borrows some code from the following repositories and blogs:

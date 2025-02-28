@@ -40,10 +40,7 @@ class ImageClassificationCollator:
         pass
 
     def __call__(self, x):
-        images, targets = [], []
-        for img, target in x:
-            images.append(img)
-            targets.append(target)
+        images, targets = zip(*x)
         images = torch.stack(images)
         targets = torch.tensor(targets)
         return {'pixel_values': images, 'labels': targets}

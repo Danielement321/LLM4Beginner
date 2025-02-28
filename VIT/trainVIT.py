@@ -9,8 +9,8 @@ from models import VITForClassification
 torch.manual_seed(3407)
 
 transform = T.Compose([T.ToTensor(), T.Normalize([0.5], [0.5])])
-train_dataset = torchvision.datasets.CIFAR10('data/CIFAR10', train=True, transform=transform, download=True)
-test_dataset = torchvision.datasets.CIFAR10('data/CIFAR10', train=False, transform=transform, download=True)
+train_dataset = torchvision.datasets.MNIST('data/MNIST', train=True, transform=transform, download=True)
+test_dataset = torchvision.datasets.MNIST('data/MNIST', train=False, transform=transform, download=True)
 
 config = SimpleVITConfig(hidden_size=256,
                           num_attention_heads=8,
@@ -18,8 +18,8 @@ config = SimpleVITConfig(hidden_size=256,
                           intermediate_size=1024,
                           dropout=0.1,
                           patch_size=4,
-                          image_size=32,
-                          in_channels=3,
+                          image_size=28,
+                          in_channels=1,
                           flash_attn=True)
 
 model = VITForClassification(config, num_classes=10).to(config.device)
