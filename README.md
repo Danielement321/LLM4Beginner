@@ -5,7 +5,7 @@ This is a simple repository for LLM by a student in AI, with the purpose of enha
 1. A simple fully connected model with SwiGELU for generation.
 2. A simple Decoder-Only Transformer for generation, which can be seen as the simple FFN model with attention mechanism.
 3. Attention map visualization support for LLM and VIT.
-4. A Vision Transformer (VIT) for image classification.
+4. A Vision Transformer (VIT) for coarse-grained and fine-grained tasks.
 
 ## Install
 The codes are bulit with PyTorch, and tokenizer from huggingface is used. So please install the following packages.
@@ -35,14 +35,23 @@ If you want to train the Decoder-Only Transformer with `Trainer` from transforme
 
     python LLM/trainWithTrainer.py
 
-### Lightweight VIT For Image Classification
-As for the VIT, run
+### Lightweight VIT
+The VIT is applied in two tasks: image classification and image reconstruction, corresponding to coarse-grained and fine-grained tasks.
 
-    python VIT/trainVIT.py
+For image classification, run
+
+    python VIT/trainVITClassifier.py
 
 This will automatically download MNIST dataset for training. You can change it to any dataset easily. Please remember to modify the `config` according to the image size.
 
 A notebook for visualizing attention map is also provided in `VLM/AttentionMap.ipynb`.
+
+For image reconstruction, run
+
+    python VIT/trainVITRecon.py
+
+Training only needs images and you should prepare a folder of images (e.g. `COCO`). After training, you can visualize the reconstruction effects in `VIT/visRecon.ipynb`. In condotions that the model is not trained with sufficient data, the reconstruction results may show grid-like artifacts, which is a common issue in VIT's applicability in low-level tasks.
+![Fail](assets/recons_failure.png)
 
 ### Simple Vision Language Model
 The VLM is trained in two stages.

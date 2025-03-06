@@ -1,8 +1,12 @@
-import matplotlib.pyplot as plt
-from config import *
+import os
+import cv2
 import math
+import matplotlib.pyplot as plt
 from sklearn.metrics import accuracy_score
-import torch
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from tqdm import tqdm
+from PIL import Image
+from config import *
 
 class Colors:
     RED = '\033[1m\033[31m'
@@ -51,3 +55,56 @@ def compute_metrics(p):
     accuracy = accuracy_score(labels, preds)
     print(Colors.BLUE + f'\nAccuracy: {accuracy:.4f}' + Colors.RESET)
     return {"accuracy": accuracy}
+
+
+class IdenticalDataset(torch.utils.data.Dataset):
+    def __init__(self, image_folder, transform):
+        self.images = [os.path.join(image_folder, f) for f in os.listdir(image_folder)]
+        self.transform = transform
+        self._validate_data(max_validation_workers=16)
+    
+    def __len__(self):
+        return len(self.images)
+    
+    def __getitem__(self, idx):
+        image = cv2.imread(self.images[idx])
+        image = self.transform(image)
+        return image, image
+    
+    def _validate_data(self, max_validation_workers):
+        print("Validating Data...")
+        valid_samples = []
+
+        with ThreadPoolExecutor(max_workers=max_validation_workers) as executor:
+            futures = {
+                executor.submit(self._validate_single_data, sample): sample
+                for sample in self.images
+            }
+
+            for future in tqdm(as_completed(futures), total=len(self.images)):
+                sample = futures[future]
+                is_valid = future.result()
+                if is_valid:
+                    valid_samples.append(sample)
+
+        self.images = valid_samples
+        self.num = len(self.images)
+        print(Colors.GREEN + f'Validated Data: {self.num} samples' + Colors.RESET)
+    
+    def _validate_single_data(self, sample):
+        try:
+            Image.open(sample).close()
+            return True
+        except Exception as e:
+            print(Colors.YELLOW + f"Error in file {sample}: {e}" + Colors.RESET)
+            return False
+
+
+class IdenticalCollator:
+    def __init__(self):
+        pass
+
+    def __call__(self, x):
+        images = torch.stack([x[i][0] for i in range(len(x))])
+        targets = torch.stack([x[i][1] for i in range(len(x))])
+        return {'pixel_values': images, 'labels': targets}

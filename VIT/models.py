@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 from torch.nn import functional as F
 from transformers import PreTrainedModel
-from transformers.modeling_outputs import ImageClassifierOutput
+from transformers.modeling_outputs import ImageClassifierOutput, ImageSuperResolutionOutput
 
 from einops import rearrange
 from utils import *
@@ -31,7 +31,7 @@ class VIT(PreTrainedModel):
             raise RuntimeError(f'Input image channel {x.shape[1]} does not match VIT_CONFIG {self.config.in_channels}!')
 
         x = self.conv(x)
-        x = rearrange(x, 'b l p1 p2 -> b (p1 p2) l')
+        x = rearrange(x, 'b hidden_size p1 p2 -> b (p1 p2) hidden_size')
         cls_token = self.cls_token.repeat(x.shape[0], 1, 1)
         x = torch.cat([cls_token, x], dim=1) + self.patch_embed
         x = self.encoder(x, embed = False)
@@ -61,3 +61,22 @@ class VITForClassification(VIT):
             return ImageClassifierOutput(loss=loss, logits=logits)
         else:
             return ImageClassifierOutput(logits=logits)
+        
+class VITForReconstruction(VIT):
+    def __init__(self, config: SimpleVITConfig):
+        super().__init__(config)
+        self.patch_height = int(config.image_size / config.patch_size)
+        self.vit = VIT(config)
+        self.conv = nn.ConvTranspose2d(config.hidden_size, config.in_channels, kernel_size=config.patch_size, stride=config.patch_size)
+        
+    def forward(self, pixel_values, labels = None):
+        pixel_values = self.vit(pixel_values)
+        pixel_values = pixel_values[:, 1:, :] # Select all but [cls] token
+        pixel_values = rearrange(pixel_values, 'b (p1 p2) hidden_size -> b hidden_size p1 p2', p1 = self.patch_height, p2 = self.patch_height)
+        pixel_values = self.conv(pixel_values)
+        
+        if labels is not None:
+            loss = F.mse_loss(pixel_values, labels)
+            return ImageSuperResolutionOutput(loss=loss, reconstruction=pixel_values)
+        else:
+            return ImageSuperResolutionOutput(reconstruction=pixel_values)
